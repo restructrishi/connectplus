@@ -1,0 +1,928 @@
+// Cachedigitech CRM - Prisma Schema
+// Database separated logically by modules. CRM does NOT modify HRMS employee table.
+// We store only employee_id; fetch details via HRMS service.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============== CRM MODULE ==============
+
+model Lead {
+  id                    String    @id @default(cuid())
+  name                  String
+  phone                 String?
+  email                 String
+  company               String?
+  source                String?   // lead source e.g. website, referral
+  status                LeadStatus @default(NEW)
+  assignedTo            String?   // lead owner; show on list only when deal exists (client has deals)
+  industry              String?
+  expectedClosureDate   DateTime?
+  expectedBusinessAmount Decimal? @db.Decimal(14, 2)
+  details               Json?     // address, OEM, distributor, entity, description
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  activities Activity[]
+  client     Client?
+
+  @@index([assignedTo])
+  @@index([status])
+  @@index([createdAt])
+  @@map("leads")
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  LOST
+  CONVERTED
+}
+
+model Client {
+  id                   String   @id @default(cuid())
+  companyName          String
+  contactPerson        String
+  phone                String?
+  email                String
+  industry             String?
+  assignedTo           String?  // employee_id from HRMS
+  convertedFromLeadId  String?  @unique
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  lead       Lead?     @relation(fields: [convertedFromLeadId], references: [id])
+  deals      Deal[]
+  activities Activity[]
+
+  @@index([assignedTo])
+  @@map("clients")
+}
+
+model Deal {
+  id                  String    @id @default(cuid())
+  clientId            String
+  value               Decimal   @db.Decimal(14, 2)
+  stage               DealStage @default(PROPOSAL)
+  expectedClosureDate DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([stage])
+  @@map("deals")
+}
+
+enum DealStage {
+  PROPOSAL
+  NEGOTIATION
+  WON
+  LOST
+}
+
+model Activity {
+  id        String       @id @default(cuid())
+  leadId    String?
+  clientId  String?
+  type      ActivityType
+  notes     String?      @db.Text
+  createdBy String       // employee_id from HRMS
+  createdAt DateTime     @default(now())
+
+  lead   Lead?   @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  client Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([leadId])
+  @@index([clientId])
+  @@index([createdBy])
+  @@index([createdAt])
+  @@map("activities")
+}
+
+enum ActivityType {
+  CALL
+  MEETING
+  EMAIL
+  FOLLOWUP
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?    @db.Text
+  assignedTo  String     // employee_id from HRMS
+  dueDate     DateTime?
+  status      TaskStatus @default(PENDING)
+  createdAt   DateTime   @default(now())
+
+  @@index([assignedTo])
+  @@index([status])
+  @@index([dueDate])
+  @@map("tasks")
+}
+
+enum TaskStatus {
+  PENDING
+  COMPLETED
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String   // employee_id from HRMS
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?    // optional extra context
+  timestamp  DateTime @default(now())
+
+  @@index([userId])
+  @@index([entityType])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
+// ============== SYNCED EMPLOYEES (from API Fetcher / external HRMS) ==============
+// Stores a snapshot of employee data fetched from external API for CRM use.
+model SyncedEmployee {
+  id             String    @id  // External/HRMS employee id
+  employeeCode   String?
+  firstName      String?
+  lastName       String?
+  email          String?
+  designation    String?
+  employmentType String?
+  dateOfJoining  DateTime?
+  departmentName String?
+  syncedAt       DateTime  @default(now())
+
+  @@index([email])
+  @@index([syncedAt])
+  @@map("synced_employees")
+}
+
+// ============== AUTH (CRM users - maps to employee_id for HRMS integration) ==============
+// This table stores CRM-specific auth + role. Employee details come from HRMS.
+model CrmUser {
+  id         String   @id @default(cuid())
+  employeeId String   @unique  // links to HRMS - we never modify HRMS
+  email      String   @unique
+  passwordHash String
+  role       CrmRole  @default(VIEWER)
+  isActive   Boolean   @default(true)
+  organizationId String?
+  firstName  String?
+  lastName   String?
+  department UserDepartment?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  organization    Organization?   @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  purchaseOrders  PurchaseOrder[]
+  preSales        PreSales[]
+  TLProjects     Project[]       @relation("TLProjects")
+  CloudTL        CloudProject[]  @relation("CloudTL")
+  agreements     Agreement[]
+  policies       Policy[]
+  projectTasks   ProjectTask[]
+
+  @@index([organizationId])
+  @@map("crm_users")
+}
+
+enum UserDepartment {
+  SCM
+  DEPLOYMENT
+  PRE_SALES
+  DATA_AI
+  CLOUD
+  LEGAL_COMPLIANCE
+  SALES
+  ISR
+  FINANCE
+}
+
+enum CrmRole {
+  SUPER_ADMIN
+  SALES_MANAGER
+  SALES_EXECUTIVE
+  VIEWER
+  PRE_SALES
+  SALES_HEAD
+  MANAGEMENT
+  SCM
+}
+
+// ============== SALES LIFECYCLE WORKFLOW ==============
+// Company → Lead → Opportunity → BOQ/SOW → OEM Quote → Quote → OVF → Approval → SCM
+// Stage-driven, RBAC, audit-tracked, status-locked, soft delete only
+
+model SalesCompany {
+  id        String   @id @default(cuid())
+  name      String
+  createdBy String   // employee_id
+  createdAt DateTime @default(now())
+  status    CompanyStatus @default(OPEN)
+  deletedAt DateTime?
+
+  leads        SalesLead[]
+  opportunities Opportunity[]
+
+  @@index([createdBy])
+  @@index([status])
+  @@map("sales_companies")
+}
+
+enum CompanyStatus {
+  OPEN
+  CLOSED
+}
+
+model SalesLead {
+  id          String    @id @default(cuid())
+  name        String
+  companyId   String
+  contactInfo String?   @db.Text  // JSON or free text
+  createdBy   String
+  assignedTo  String?
+  status      LeadLifecycleStatus @default(OPEN)
+  convertedAt DateTime?
+  convertedBy String?
+  convertedReason String? @db.Text
+  deadAt      DateTime?
+  deadBy      String?
+  deadReason  String?   @db.Text
+  deletedAt   DateTime?
+
+  company     SalesCompany @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  opportunity Opportunity?
+
+  @@index([companyId])
+  @@index([status])
+  @@index([assignedTo])
+  @@map("sales_leads")
+}
+
+enum LeadLifecycleStatus {
+  OPEN
+  CONVERTED
+  DEAD
+}
+
+model Opportunity {
+  id                    String    @id @default(cuid())
+  name                  String
+  companyId             String
+  leadId                String?   @unique  // set when lead converted
+  estimatedValue       Decimal?  @db.Decimal(14, 2)
+  assignedSalesPerson   String
+  stage                 OpportunityStage @default(OPEN)
+  probability           Int?      // 0-100
+  expectedClosureDate   DateTime?
+  drNumber              String?   // Deal Registration - or "NA"
+  drNumberNa            Boolean   @default(false)
+  oemQuotationReceived  Boolean?  // null = not set, true/false
+  isLocked              Boolean   @default(false)  // when lost or SCM
+  lostAt                DateTime?
+  lostBy                String?
+  lostReason            String?   @db.Text
+  lostStage             String?
+  deletedAt             DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  company   SalesCompany  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  lead      SalesLead?    @relation(fields: [leadId], references: [id])
+  documents Document[]
+  quote     Quote?
+  ovf       OVF?
+  approvals Approval[]
+  scmHandoff SCMHandoff?
+  timeline  OpportunityTimeline[]
+
+  @@index([companyId])
+  @@index([stage])
+  @@index([assignedSalesPerson])
+  @@map("opportunities")
+}
+
+enum OpportunityStage {
+  OPEN
+  BOQ_SUBMITTED
+  SOW_ATTACHED
+  OEM_QUOTATION_RECEIVED
+  QUOTE_CREATED
+  OVF_CREATED
+  APPROVAL_PENDING
+  APPROVED
+  SENT_TO_SCM
+  LOST_DEAL
+}
+
+model Document {
+  id            String   @id @default(cuid())
+  opportunityId String
+  type         DocumentType
+  filePath     String   // storage path or key
+  fileName     String
+  version      Int      @default(1)
+  uploadedBy   String
+  uploadedAt   DateTime @default(now())
+  deletedAt    DateTime?
+
+  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@index([opportunityId])
+  @@index([type])
+  @@map("documents")
+}
+
+enum DocumentType {
+  BOQ
+  SOW
+  OEM_QUOTE
+  QUOTE_SUPPORTING
+  OVF_ATTACHMENT
+}
+
+model Quote {
+  id             String    @id @default(cuid())
+  opportunityId  String    @unique
+  amount         Decimal   @db.Decimal(14, 2)
+  marginPercent  Decimal?  @db.Decimal(8, 2)
+  marginAmount   Decimal?  @db.Decimal(14, 2)
+  details        Json?
+  lockedAt       DateTime? // when OVF created
+  createdBy      String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  ovf         OVF?
+
+  @@map("quotes")
+}
+
+model OVF {
+  id                String    @id @default(cuid())
+  opportunityId     String    @unique
+  quoteId           String    @unique
+  dealName          String
+  finalAmount       Decimal   @db.Decimal(14, 2)
+  marginPercent     Decimal?  @db.Decimal(8, 2)
+  paymentTerms      String?   @db.Text
+  status            OVFStatus @default(DRAFT)
+  createdBy         String
+  createdAt         DateTime  @default(now())
+  sentForApprovalAt DateTime?
+  deletedAt         DateTime?
+
+  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  quote       Quote       @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  approvals   Approval[]
+
+  @@index([status])
+  @@map("ovfs")
+}
+
+enum OVFStatus {
+  DRAFT
+  APPROVAL_PENDING
+  APPROVED
+  REJECTED
+}
+
+model Approval {
+  id             String   @id @default(cuid())
+  ovfId          String
+  opportunityId  String
+  status         ApprovalStatus @default(PENDING)
+  requestedAt    DateTime @default(now())
+  decidedAt      DateTime?
+  decidedBy      String?
+  comments       String?  @db.Text
+  deletedAt      DateTime?
+
+  ovf         OVF         @relation(fields: [ovfId], references: [id], onDelete: Cascade)
+  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@index([ovfId])
+  @@index([status])
+  @@map("approvals")
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model SCMHandoff {
+  id             String   @id @default(cuid())
+  opportunityId  String   @unique
+  ovfId          String
+  handedOffAt    DateTime @default(now())
+  handedOffBy    String
+  status         String   @default("SENT")
+  deletedAt      DateTime?
+
+  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@index([ovfId])
+  @@map("scm_handoffs")
+}
+
+model OpportunityTimeline {
+  id             String   @id @default(cuid())
+  opportunityId  String
+  action         String
+  stageFrom      String?
+  stageTo        String?
+  userId         String
+  comment        String?  @db.Text
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@index([opportunityId])
+  @@index([createdAt])
+  @@map("opportunity_timeline")
+}
+
+// ============== DUAL-PANEL PIPELINE (NEW - isolated from existing sales lifecycle) ==============
+model PipelineCompany {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leads         PipelineLead[]
+  opportunities PipelineOpportunity[]
+
+  @@map("pipeline_companies")
+}
+
+model PipelineLead {
+  id            String    @id @default(cuid())
+  companyId     String
+  status        String    @default("ACTIVE")
+  createdAt     DateTime  @default(now())
+  convertedAt   DateTime?
+  convertedToId String?
+  lostReason    String?   @db.Text
+
+  company     PipelineCompany      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  opportunity PipelineOpportunity?
+
+  @@index([companyId])
+  @@index([status])
+  @@map("pipeline_leads")
+}
+
+model PipelineOpportunity {
+  id         String   @id @default(cuid())
+  companyId  String
+  leadId     String?  @unique
+  status     String   @default("LEAD_CONVERTED")
+  attachments     Json @default("{}")
+  technicalDetails Json @default("{}")
+  approvals       Json @default("[]")
+  emailsSent      Json @default("[]")
+  ovfDetails      Json @default("{}")
+  lostDeal        Boolean @default(false)
+  lostReason      String?  @db.Text
+  lifecycleOpportunityId String? // lifecycle Opportunity id so Pipeline Engine shows this after convert
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company  PipelineCompany  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  lead     PipelineLead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([companyId])
+  @@map("pipeline_opportunities")
+}
+
+// ============== ZOHO-STYLE CRM (Multi-tenant, department workflows) ==============
+// Coexists with existing leads/clients/deals; new modules use Organization + CrmContact/CrmDeal.
+
+model Organization {
+  id               String   @id @default(cuid())
+  name             String   @unique
+  domain           String?  @unique
+  subscriptionTier String   @default("BASIC")
+  status           String   @default("ACTIVE")
+  logo             String?
+  primaryColor     String?  @default("#0F62FE")
+  settings         Json     @default("{}")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  users          CrmUser[]
+  departments    OrgDepartment[]
+  contacts       CrmContact[]
+  crmDeals       CrmDeal[]
+  products       OrgProduct[]
+  purchaseOrders PurchaseOrder[]
+  deployments    Deployment[]
+  preSales       PreSales[]
+  projects       Project[]
+  cloudProjects  CloudProject[]
+  agreements     Agreement[]
+  policies       Policy[]
+}
+
+model OrgDepartment {
+  id             String   @id @default(cuid())
+  name           String
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  headId         String?
+  settings       Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([name, organizationId])
+  @@index([organizationId])
+}
+
+model CrmContact {
+  id              String   @id @default(cuid())
+  firstName       String
+  lastName        String
+  email           String
+  phone           String?
+  mobile          String?
+  companyName     String
+  designation     String?
+  website         String?
+  address         String?
+  city            String?
+  state           String?
+  country         String?
+  pincode         String?
+  contactType     String   @default("CUSTOMER")
+  leadSource      String?
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ownerId         String?
+  isActive        Boolean  @default(true)
+  lastContactedAt DateTime?
+  customFields    Json     @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  deals       CrmDeal[]
+  deployments Deployment[]
+  agreements  Agreement[]
+
+  @@index([organizationId])
+  @@index([email])
+  @@index([companyName])
+  @@unique([email, organizationId])
+}
+
+enum CrmDealStage {
+  LEAD_GENERATION
+  QUALIFICATION
+  PRE_SALES_HANDOVER
+  REQUIREMENT_ANALYSIS
+  SOLUTION_DESIGN
+  SYSTEM_DESIGN
+  TECHNOLOGY_STACK
+  BOQ_PREPARATION
+  POC
+  PROPOSAL_GENERATION
+  NEGOTIATION
+  AGREEMENT_PHASE
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+model CrmDeal {
+  id                String        @id @default(cuid())
+  dealName          String
+  dealValue         Float
+  stage             CrmDealStage
+  subStage          String?
+  contactId         String
+  contact          CrmContact     @relation(fields: [contactId], references: [id])
+  organizationId    String
+  organization      Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ownerId           String
+  scmPersonId       String?
+  preSalesPersonId  String?
+  expectedCloseDate DateTime?
+  actualCloseDate   DateTime?
+  probability       Int?
+  documents         Json          @default("{}")
+  isWon             Boolean       @default(false)
+  isLost            Boolean       @default(false)
+  lostReason        String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+  deployments    Deployment[]
+  preSales       PreSales?
+  agreements     Agreement[]
+
+  @@index([organizationId])
+  @@index([stage])
+  @@index([contactId])
+  @@index([ownerId])
+}
+
+model OrgProduct {
+  id             String   @id @default(cuid())
+  name           String
+  sku            String
+  description    String?
+  unitPrice      Float
+  costPrice      Float
+  currentStock   Int      @default(0)
+  minimumStock   Int      @default(5)
+  category       String?
+  specifications Json     @default("{}")
+  isActive       Boolean  @default(true)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  purchaseOrderItems PurchaseOrderItem[]
+
+  @@index([organizationId])
+  @@unique([sku, organizationId])
+}
+
+enum POStatus {
+  CLIENT_PO_RECEIVED
+  PO_SENT_TO_DISTRIBUTOR
+  DISTRIBUTOR_DELIVERED
+  WAREHOUSE_TO_CUSTOMER
+  DOCUMENTS_COMPLETED
+  INVOICE_SENT_TO_ACCOUNTS
+  INVOICE_SENT_TO_CUSTOMER
+  COMPLETED
+}
+
+model PurchaseOrder {
+  id                      String    @id @default(cuid())
+  poNumber                String    @unique
+  clientPOReceived        Boolean   @default(false)
+  clientPOReceivedAt      DateTime?
+  clientPOFile            String?
+  timeCalculation         Json      @default("{}")
+  poSentToDistributor     Boolean   @default(false)
+  poSentToDistributorAt   DateTime?
+  distributorPOFile       String?
+  distributorDelivered    Boolean   @default(false)
+  distributorDeliveredAt  DateTime?
+  deliveryChallan         String?
+  warehouseToCustomer     Boolean   @default(false)
+  warehouseToCustomerAt   DateTime?
+  proofOfDelivery         String?
+  mipMrnDocuments        Json      @default("[]")
+  scmInvoiceSent          Boolean   @default(false)
+  scmInvoiceSentAt        DateTime?
+  scmInvoiceFile          String?
+  accountsInvoiceSent     Boolean   @default(false)
+  accountsInvoiceSentAt   DateTime?
+  customerInvoiceFile    String?
+  status                  POStatus   @default(CLIENT_PO_RECEIVED)
+  subtotal                Float
+  tax                     Float
+  shipping                Float    @default(0)
+  total                   Float
+  currency                String    @default("INR")
+  dealId                  String?
+  deal                    CrmDeal?  @relation(fields: [dealId], references: [id])
+  organizationId          String
+  organization            Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById             String
+  createdBy               CrmUser     @relation(fields: [createdById], references: [id])
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  items PurchaseOrderItem[]
+
+  @@index([organizationId])
+  @@index([dealId])
+  @@index([status])
+}
+
+model PurchaseOrderItem {
+  id              String    @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  productId      String
+  product        OrgProduct @relation(fields: [productId], references: [id])
+  quantity        Int
+  unitPrice       Float
+  totalPrice      Float
+  receivedQuantity Int     @default(0)
+  status          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([purchaseOrderId])
+  @@index([productId])
+}
+
+// ----- Deployment -----
+enum DeploymentStatus {
+  KICK_OFF_PENDING
+  SITE_SURVEY
+  SEGREGATION
+  RACK_INSTALLATION
+  CONFIGURATION
+  TESTING
+  LIVE
+  COMPLETED
+  DELAYED
+}
+
+model Deployment {
+  id             String            @id @default(cuid())
+  dealId         String
+  deal           CrmDeal           @relation(fields: [dealId], references: [id])
+  contactId      String
+  contact        CrmContact        @relation(fields: [contactId], references: [id])
+  status         DeploymentStatus   @default(KICK_OFF_PENDING)
+  kickOffMeeting Json              @default("{}")
+  siteSurvey     Json              @default("{}")
+  projectManagerId String?
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([organizationId])
+  @@index([dealId])
+  @@index([status])
+}
+
+// ----- Pre-Sales -----
+model PreSales {
+  id                  String    @id @default(cuid())
+  dealId              String    @unique
+  deal                CrmDeal   @relation(fields: [dealId], references: [id])
+  handoverDate        DateTime
+  handoverNotes       String?
+  requirementAnalysis Json      @default("{}")
+  solutionDesign      Json      @default("{}")
+  boq                 Json      @default("{}")
+  proposalGenerated   Boolean   @default(false)
+  organizationId     String
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById        String
+  createdBy          CrmUser   @relation(fields: [createdById], references: [id])
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([organizationId])
+  @@index([dealId])
+}
+
+// ----- Data/AI: Project & Tasks -----
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  ON_HOLD
+}
+
+model Project {
+  id             String        @id @default(cuid())
+  name           String
+  description    String?
+  tlId           String
+  tl             CrmUser       @relation("TLProjects", fields: [tlId], references: [id])
+  status         ProjectStatus @default(ACTIVE)
+  teamMembers    Json          @default("[]")
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  tasks ProjectTask[]
+
+  @@index([organizationId])
+  @@index([tlId])
+}
+
+enum ProjectTaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  VALIDATED
+  REJECTED
+}
+
+model ProjectTask {
+  id           String             @id @default(cuid())
+  projectId    String
+  project      Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  assignedToId String
+  assignedTo   CrmUser            @relation(fields: [assignedToId], references: [id])
+  status       ProjectTaskStatus  @default(PENDING)
+  dueDate      DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([projectId])
+  @@index([assignedToId])
+}
+
+// ----- Cloud -----
+enum CloudStatus {
+  ASSESSMENT
+  ARCHITECTURE
+  IMPLEMENTATION
+  TESTING
+  OPTIMIZATION
+  COMPLETED
+}
+
+model CloudProject {
+  id             String      @id @default(cuid())
+  name           String
+  description    String?
+  tlId           String
+  tl             CrmUser     @relation("CloudTL", fields: [tlId], references: [id])
+  status         CloudStatus @default(ASSESSMENT)
+  assessment     Json        @default("{}")
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([organizationId])
+  @@index([tlId])
+}
+
+// ----- Legal -----
+enum AgreementType {
+  NDA
+  MSA
+  RESELLER_AGREEMENT
+  SERVICE_AGREEMENT
+  OTHER
+}
+
+model Agreement {
+  id             String        @id @default(cuid())
+  agreementNumber String        @unique
+  dealId         String?
+  deal           CrmDeal?       @relation(fields: [dealId], references: [id])
+  contactId      String?
+  contact        CrmContact?   @relation(fields: [contactId], references: [id])
+  agreementType  AgreementType
+  sentToClient   Boolean       @default(false)
+  signed         Boolean       @default(false)
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById    String
+  createdBy      CrmUser       @relation(fields: [createdById], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([organizationId])
+  @@index([dealId])
+}
+
+enum PolicyStatus {
+  DRAFT
+  UNDER_REVIEW
+  APPROVED
+  ACTIVE
+  ARCHIVED
+}
+
+model Policy {
+  id             String       @id @default(cuid())
+  policyNumber   String       @unique
+  title          String
+  status         PolicyStatus @default(DRAFT)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById    String
+  createdBy      CrmUser      @relation(fields: [createdById], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+}
