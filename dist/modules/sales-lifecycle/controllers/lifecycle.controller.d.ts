@@ -1,0 +1,27 @@
+import type { Request, Response, NextFunction } from "express";
+export declare function createCompany(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function getCompany(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function listCompanies(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function createLead(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function getLead(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function listLeads(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function convertLead(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function markLeadDead(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function createOpportunity(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function getOpportunity(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function listOpportunities(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function transitionStage(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function updateOemFields(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function getOpportunityTimeline(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function getOpportunityPipeline(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function createQuote(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function getQuote(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function updateQuote(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function createOvf(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function sendOvfForApproval(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function listPendingApprovals(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function approvalDecide(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function scmHandoff(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function listScmHandoffs(req: Request, res: Response, next: NextFunction): Promise<void>;
+export declare function getLifecycleDashboardData(_req: Request, res: Response, next: NextFunction): Promise<void>;
+//# sourceMappingURL=lifecycle.controller.d.ts.map

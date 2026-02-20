@@ -1,0 +1,132 @@
+export declare const quoteRepository: {
+    create(data: {
+        opportunityId: string;
+        amount: number;
+        marginPercent?: number;
+        marginAmount?: number;
+        details?: object;
+        createdBy: string;
+    }): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        createdBy: string;
+        deletedAt: Date | null;
+        opportunityId: string;
+        amount: import("../../../../generated/prisma-client/runtime/library.js").Decimal;
+        marginPercent: import("../../../../generated/prisma-client/runtime/library.js").Decimal | null;
+        marginAmount: import("../../../../generated/prisma-client/runtime/library.js").Decimal | null;
+        details: import("../../../../generated/prisma-client/runtime/library.js").JsonValue | null;
+        lockedAt: Date | null;
+    }>;
+    findById(id: string): Promise<({
+        opportunity: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            stage: import("../../../../generated/prisma-client/index.js").$Enums.OpportunityStage;
+            expectedClosureDate: Date | null;
+            leadId: string | null;
+            deletedAt: Date | null;
+            companyId: string;
+            isLocked: boolean;
+            estimatedValue: import("../../../../generated/prisma-client/runtime/library.js").Decimal | null;
+            assignedSalesPerson: string;
+            probability: number | null;
+            drNumber: string | null;
+            drNumberNa: boolean;
+            oemQuotationReceived: boolean | null;
+            lostAt: Date | null;
+            lostBy: string | null;
+            lostReason: string | null;
+            lostStage: string | null;
+        };
+        ovf: {
+            id: string;
+            createdAt: Date;
+            status: import("../../../../generated/prisma-client/index.js").$Enums.OVFStatus;
+            createdBy: string;
+            deletedAt: Date | null;
+            opportunityId: string;
+            marginPercent: import("../../../../generated/prisma-client/runtime/library.js").Decimal | null;
+            quoteId: string;
+            dealName: string;
+            finalAmount: import("../../../../generated/prisma-client/runtime/library.js").Decimal;
+            paymentTerms: string | null;
+            sentForApprovalAt: Date | null;
+        } | null;
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        createdBy: string;
+        deletedAt: Date | null;
+        opportunityId: string;
+        amount: import("../../../../generated/prisma-client/runtime/library.js").Decimal;
+        marginPercent: import("../../../../generated/prisma-client/runtime/library.js").Decimal | null;
+        marginAmount: import("../../../../generated/prisma-client/runtime/library.js").Decimal | null;
+        details: import("../../../../generated/prisma-client/runtime/library.js").JsonValue | null;
+        lockedAt: Date | null;
+    }) | null>;
+    findByOpportunityId(opportunityId: string): Promise<({
+        ovf: {
+            id: string;
+            createdAt: Date;
+            status: import("../../../../generated/prisma-client/index.js").$Enums.OVFStatus;
+            createdBy: string;
+            deletedAt: Date | null;
+            opportunityId: string;
+            marginPercent: import("../../../../generated/prisma-client/runtime/library.js").Decimal | null;
+            quoteId: string;
+            dealName: string;
+            finalAmount: import("../../../../generated/prisma-client/runtime/library.js").Decimal;
+            paymentTerms: string | null;
+            sentForApprovalAt: Date | null;
+        } | null;
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        createdBy: string;
+        deletedAt: Date | null;
+        opportunityId: string;
+        amount: import("../../../../generated/prisma-client/runtime/library.js").Decimal;
+        marginPercent: import("../../../../generated/prisma-client/runtime/library.js").Decimal | null;
+        marginAmount: import("../../../../generated/prisma-client/runtime/library.js").Decimal | null;
+        details: import("../../../../generated/prisma-client/runtime/library.js").JsonValue | null;
+        lockedAt: Date | null;
+    }) | null>;
+    update(id: string, data: {
+        amount?: number;
+        marginPercent?: number;
+        marginAmount?: number;
+        details?: object;
+    }): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        createdBy: string;
+        deletedAt: Date | null;
+        opportunityId: string;
+        amount: import("../../../../generated/prisma-client/runtime/library.js").Decimal;
+        marginPercent: import("../../../../generated/prisma-client/runtime/library.js").Decimal | null;
+        marginAmount: import("../../../../generated/prisma-client/runtime/library.js").Decimal | null;
+        details: import("../../../../generated/prisma-client/runtime/library.js").JsonValue | null;
+        lockedAt: Date | null;
+    }>;
+    lock(id: string): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        createdBy: string;
+        deletedAt: Date | null;
+        opportunityId: string;
+        amount: import("../../../../generated/prisma-client/runtime/library.js").Decimal;
+        marginPercent: import("../../../../generated/prisma-client/runtime/library.js").Decimal | null;
+        marginAmount: import("../../../../generated/prisma-client/runtime/library.js").Decimal | null;
+        details: import("../../../../generated/prisma-client/runtime/library.js").JsonValue | null;
+        lockedAt: Date | null;
+    }>;
+};
+//# sourceMappingURL=quote.repository.d.ts.map
