@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { FileSearch } from "lucide-react";
+import { Cpu, FileSearch, Package } from "lucide-react";
 import { api } from "../../lib/api";
 import { useAuthStore } from "../../stores/authStore";
 
@@ -18,6 +18,13 @@ const items = [
       { to: "/crm/leads", label: "Leads" },
       { to: "/crm/opportunities", label: "Opportunities" },
       { to: "/presales", label: "Presales", icon: "FileSearch" as const, showPresalesBadge: true },
+    ],
+  },
+  {
+    group: "OPERATIONS",
+    links: [
+      { to: "/scm", label: "SCM", icon: "Package" as const },
+      { to: "/deployment", label: "Deployment", icon: "Cpu" as const },
     ],
   },
   {
@@ -45,6 +52,18 @@ export function Sidebar() {
 
   const activePresalesCount = presalesSummary?.activeCount;
 
+  const { data: scmSummary } = useQuery({
+    queryKey: ["scm-summary"],
+    enabled: Boolean(user),
+    queryFn: async () => {
+      const response = await api.get("/api/scm/orders/summary");
+      const summary = response.data?.data?.summary as { activeCount: number } | undefined;
+      return summary;
+    },
+  });
+
+  const activeScmCount = scmSummary?.activeCount;
+
   return (
     <aside className="relative w-64 border-r border-[var(--border)] bg-[var(--bg-surface)]/95">
       <div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-[var(--accent-primary)]/40 to-transparent" />
@@ -57,22 +76,20 @@ export function Sidebar() {
       </div>
       <nav className="space-y-4 px-2 pb-4">
         {items.map(group => {
-          const links =
-            group.group === "SALES"
-              ? group.links.filter(link => link.label !== "Presales" || canSeePresales)
-              : group.links;
-
-          if (links.length === 0) {
+          if (group.links.length === 0) {
             return null;
           }
 
           return (
             <div key={group.group}>
-              <div className="px-3 pb-1 text-[11px] font-medium tracking-[0.22em] text-neutral-500">{group.group}</div>
+              <div className="px-3 pb-1 text-[11px] font-medium tracking-[0.22em] text-neutral-500">
+                {group.group}
+              </div>
               <div className="space-y-1">
-                {links.map(link => {
+                {group.links.map(link => {
                   const active = location.pathname.startsWith(link.to);
-                  const showPresalesBadge = link.label === "Presales" && canSeePresales && activePresalesCount != null;
+                  const showPresalesBadge = link.label === "Presales" && activePresalesCount != null;
+                  const showScmBadge = link.label === "SCM" && activeScmCount != null;
                   return (
                     <Link
                       key={link.to}
@@ -85,11 +102,13 @@ export function Sidebar() {
                     >
                       <span className="flex items-center gap-2">
                         {link.icon === "FileSearch" && <FileSearch className="h-4 w-4" />}
+                        {link.icon === "Package" && <Package className="h-4 w-4" />}
+                        {link.icon === "Cpu" && <Cpu className="h-4 w-4" />}
                         <span>{link.label}</span>
                       </span>
-                      {showPresalesBadge && (
+                      {(showPresalesBadge || showScmBadge) && (
                         <span className="ml-2 inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 text-[10px] text-neutral-500">
-                          {activePresalesCount}
+                          {showPresalesBadge ? activePresalesCount : activeScmCount}
                         </span>
                       )}
                     </Link>

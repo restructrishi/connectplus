@@ -309,6 +309,144 @@ type ConnectedPresalesProjectSummary = {
   winProbability: number;
 };
 
+type ScmOrderListItem = {
+  id: string;
+  orderRef: string;
+  clientName: string;
+  clientAddress: string | null;
+  assignedTo: string;
+  currentStage: string;
+  status: string;
+  priority: string;
+  estimatedValue: number | null;
+  expectedDelivery: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type ScmStageLog = {
+  id: string;
+  stage: string;
+  enteredAt: string;
+  exitedAt: string | null;
+  durationMin: number | null;
+};
+
+type ScmDocument = {
+  id: string;
+  type: string;
+  name: string;
+  fileUrl: string | null;
+  uploadedAt: string;
+};
+
+type ScmExpense = {
+  id: string;
+  category: string;
+  amount: number;
+  status: string;
+  createdAt: string;
+};
+
+type ScmEmailItem = {
+  id: string;
+  to: string[];
+  cc: string[];
+  subject: string;
+  body: string;
+  type: string;
+  sentAt: string;
+};
+
+type ScmActivityItem = {
+  id: string;
+  orderId: string;
+  type: string;
+  description: string;
+  createdBy: string;
+  fileUrl?: string | null;
+  createdAt: string;
+};
+
+type ScmOrderDetail = ScmOrderListItem & {
+  linkedLeadId: number | null;
+  linkedDealId: number | null;
+  linkedOVFId: number | null;
+  stageLogs: ScmStageLog[];
+  documents: ScmDocument[];
+  expenses: ScmExpense[];
+  emails: ScmEmailItem[];
+};
+
+type DeploymentProjectListItem = {
+  id: string;
+  projectRef: string;
+  linkedSCMOrderId: string;
+  linkedLeadId: string | null;
+  linkedDealId: string | null;
+  clientName: string;
+  clientAddress: string | null;
+  assignedManagerId: string;
+  currentStage: string;
+  status: string;
+  priority: string;
+  kickoffDate: string | null;
+  expectedGoLive: string | null;
+  actualGoLive: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type DeploymentTaskListItem = {
+  id: string;
+  projectId: string;
+  title: string;
+  description?: string | null;
+  stage: string;
+  assignedTo: string;
+  assignedBy: string;
+  priority: string;
+  status: string;
+  dueDate: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  project: {
+    id: string;
+    projectRef: string;
+    clientName: string;
+  };
+};
+
+type DeploymentSiteSurveyListItem = {
+  id: string;
+  projectId: string;
+  surveyDate: string | null;
+  conductedBy?: string | null;
+  status: string;
+  project: {
+    id: string;
+    projectRef: string;
+    clientName: string;
+  };
+};
+
+type ScmProcurementRecord = {
+  distributorName?: string | null;
+  distributorPORef?: string | null;
+  distributorPODate?: string | null;
+  expectedDelivery?: string | null;
+  status?: string | null;
+};
+
+type ScmDispatchRecord = {
+  dispatchDate?: string | null;
+  deliveredAt?: string | null;
+  vehicleDetails?: string | null;
+  driverName?: string | null;
+  driverContact?: string | null;
+};
+
 function ConnectedPresalesRecords({ leadId }: { leadId: number }) {
   const navigate = useNavigate();
 
@@ -2512,6 +2650,7 @@ function CountUpCard(props: {
 function PresalesDashboardPage() {
   const [page] = useState(1);
   const pageSize = 10;
+  const navigate = useNavigate();
 
   const { data: summary, isLoading: summaryLoading, isError: summaryError } = useQuery({
     queryKey: ["presales-dashboard-summary"],
@@ -2592,9 +2731,11 @@ function PresalesDashboardPage() {
               </div>
               <div className="divide-y divide-[var(--border)]/70">
                 {projects.map(project => (
-                  <div
+                  <button
                     key={project.id}
-                    className="grid grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,0.8fr)] items-center gap-3 px-4 py-3"
+                    type="button"
+                    onClick={() => navigate(`/presales/projects/${project.id}`)}
+                    className="grid w-full grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,0.8fr)] items-center gap-3 px-4 py-3 text-left hover:bg-[var(--bg-elevated)]/60 focus:outline-none"
                   >
                     <div className="space-y-1">
                       <p className="text-sm font-semibold text-[var(--text-primary)]">{project.title}</p>
@@ -2618,7 +2759,7 @@ function PresalesDashboardPage() {
                     <div className="text-right text-[11px] text-neutral-500">
                       {new Date(project.updatedAt).toLocaleDateString()}
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </>
@@ -4108,7 +4249,199 @@ function PresalesProjectDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* existing JSX unchanged */}
+      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+        <div>
+          <p className="text-xs uppercase tracking-[0.25em] text-neutral-500">Presales Project</p>
+          <h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">
+            {data?.title ?? "Presales project"}
+          </h1>
+          {data && (
+            <p className="mt-1 text-sm text-neutral-500">
+              {data.clientName} · {data.assignedTo} · Stage {data.currentStage}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-3 text-xs">
+          <button
+            type="button"
+            onClick={() => navigate("/presales/projects")}
+            className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-2 text-[11px] text-neutral-600"
+          >
+            Back to list
+          </button>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 px-4 py-6 text-center text-[11px] text-neutral-500">
+          Loading project…
+        </div>
+      ) : !data ? (
+        <div className="rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 px-4 py-6 text-center text-[11px] text-neutral-500">
+          Presales project not found or no longer available.
+        </div>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 px-4 py-4 text-xs shadow-sm">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500">
+                Overview
+              </p>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <div className="space-y-1">
+                  <p className="text-[11px] text-neutral-500">Client</p>
+                  <p className="text-sm font-medium text-[var(--text-primary)]">
+                    {data.clientName || "Not specified"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[11px] text-neutral-500">Assigned To</p>
+                  <p className="text-sm font-medium text-[var(--text-primary)]">
+                    {data.assignedTo || "Unassigned"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[11px] text-neutral-500">Stage</p>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-3 py-1 text-[11px] font-medium text-sky-500">
+                    <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+                    {data.currentStage}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[11px] text-neutral-500">Priority</p>
+                  <span className="inline-flex items-center rounded-full bg-[var(--bg-elevated)] px-3 py-1 text-[11px] text-neutral-600">
+                    {data.priority}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[11px] text-neutral-500">Estimated Value</p>
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">
+                    {data.estimatedValue != null
+                      ? `₹ ${data.estimatedValue.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
+                      : "TBD"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[11px] text-neutral-500">Win Probability</p>
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">
+                    {data.winProbability}%
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[11px] text-neutral-500">Status</p>
+                  <span className="inline-flex items-center rounded-full bg-[var(--bg-elevated)] px-3 py-1 text-[11px] text-neutral-600">
+                    {data.status}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[11px] text-neutral-500">Expected Close</p>
+                  <p className="text-sm text-[var(--text-primary)]">
+                    {data.expectedCloseDate
+                      ? new Date(data.expectedCloseDate).toLocaleDateString()
+                      : "Not set"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 px-4 py-4 text-xs shadow-sm">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500">
+                Requirements
+              </p>
+              {data.requirements ? (
+                <div className="mt-3 space-y-3">
+                  {data.requirements.rawNotes && (
+                    <div className="space-y-1">
+                      <p className="text-[11px] text-neutral-500">Raw notes</p>
+                      <p className="text-[11px] text-neutral-700 whitespace-pre-wrap">
+                        {data.requirements.rawNotes}
+                      </p>
+                    </div>
+                  )}
+                  {data.requirements.constraints && (
+                    <div className="space-y-1">
+                      <p className="text-[11px] text-neutral-500">Constraints</p>
+                      <p className="text-[11px] text-neutral-700 whitespace-pre-wrap">
+                        {data.requirements.constraints}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="mt-3 text-[11px] text-neutral-500">
+                  Requirements have not been captured for this project yet.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 px-4 py-4 text-xs shadow-sm">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500">
+                Solution snapshot
+              </p>
+              {data.solution ? (
+                <div className="mt-3 space-y-2">
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-neutral-500">Architecture URL</p>
+                    <p className="text-[11px] text-[var(--text-primary)] break-all">
+                      {data.solution.architectureUrl || "Not provided"}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-neutral-500">Diagram URL</p>
+                    <p className="text-[11px] text-[var(--text-primary)] break-all">
+                      {data.solution.diagramUrl || "Not provided"}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-neutral-500">Recommended option</p>
+                    <p className="text-[11px] text-neutral-700 whitespace-pre-wrap">
+                      {data.solution.recommendedOption || "Not specified"}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-neutral-500">Justification</p>
+                    <p className="text-[11px] text-neutral-700 whitespace-pre-wrap">
+                      {data.solution.justification || "Not specified"}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-3 text-[11px] text-neutral-500">
+                  Solution design has not been documented yet.
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 px-4 py-4 text-xs shadow-sm">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500">
+                Linked artefacts
+              </p>
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-neutral-500">BOQ</span>
+                  <span className="rounded-full bg-[var(--bg-elevated)] px-3 py-1 text-neutral-700">
+                    {data.boq ? data.boq.status : "Not created"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-neutral-500">POC</span>
+                  <span className="rounded-full bg-[var(--bg-elevated)] px-3 py-1 text-neutral-700">
+                    {data.poc ? data.poc.status : "Not created"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-neutral-500">Proposal</span>
+                  <span className="rounded-full bg-[var(--bg-elevated)] px-3 py-1 text-neutral-700">
+                    {data.proposal ? data.proposal.status : "Not created"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -6398,6 +6731,2257 @@ function PresalesProposalsPage() {
   );
 }
 
+function ScmDashboardPage() {
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+  const [stageFilter, setStageFilter] = useState<string>("All");
+  const [priorityFilter, setPriorityFilter] = useState<string>("All");
+  const [assigneeFilter, setAssigneeFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const navigate = useNavigate();
+
+  const { data: statsData } = useQuery({
+    queryKey: ["scm-stats"],
+    queryFn: async () => {
+      const response = await api.get("/api/v1/scm/stats");
+      return response.data?.data?.stats as
+        | {
+            activeCount: number;
+            completedCount: number;
+            byStage: { stage: string; count: number }[];
+          }
+        | undefined;
+    },
+  });
+
+  const { data: listData, isLoading, isError } = useQuery({
+    queryKey: ["scm-orders", { page, pageSize, stageFilter, priorityFilter, assigneeFilter }],
+    queryFn: async () => {
+      const response = await api.get("/api/v1/scm", {
+        params: {
+          page,
+          pageSize,
+          stage: stageFilter !== "All" ? stageFilter : undefined,
+          status: "active",
+          assignedTo: assigneeFilter || undefined,
+        },
+      });
+      const payload = response.data?.data as
+        | { items: ScmOrderListItem[]; total: number; page: number; pageSize: number }
+        | undefined;
+      return payload;
+    },
+  });
+
+  const itemsRaw = listData?.items ?? [];
+
+  const filteredItems = itemsRaw.filter(order => {
+    if (priorityFilter !== "All" && order.priority !== priorityFilter) {
+      return false;
+    }
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      const match =
+        order.clientName.toLowerCase().includes(q) ||
+        order.orderRef.toLowerCase().includes(q) ||
+        (order.clientAddress ?? "").toLowerCase().includes(q);
+      if (!match) {
+        return false;
+      }
+    }
+    if (fromDate) {
+      const created = new Date(order.createdAt).getTime();
+      const from = new Date(fromDate).getTime();
+      if (created < from) {
+        return false;
+      }
+    }
+    if (toDate) {
+      const created = new Date(order.createdAt).getTime();
+      const to = new Date(toDate).getTime();
+      if (created > to) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  const total = listData?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  const now = Date.now();
+  const ordersWithDerived = filteredItems.map(order => {
+    const updatedAtTime = new Date(order.updatedAt ?? order.createdAt).getTime();
+    const millisInDay = 24 * 60 * 60 * 1000;
+    const daysInStage = Math.floor((now - updatedAtTime) / millisInDay);
+    const expectedDeliveryTime = order.expectedDelivery ? new Date(order.expectedDelivery).getTime() : null;
+    const isOverdueDelivery = expectedDeliveryTime != null && expectedDeliveryTime < now && order.status === "active";
+    const isStalled = daysInStage > 3 && order.status === "active";
+    return {
+      ...order,
+      daysInStage,
+      isOverdueDelivery,
+      isStalled,
+    };
+  });
+
+  const activeCount = statsData?.activeCount ?? 0;
+  const stalledCount = ordersWithDerived.filter(o => o.isStalled).length;
+  const pendingDispatches = ordersWithDerived.filter(o =>
+    ["MATERIAL_DELIVERED_WAREHOUSE", "WAREHOUSE_DISPATCH_TO_CUSTOMER"].includes(o.currentStage),
+  ).length;
+  const invoicesPending = ordersWithDerived.filter(
+    o =>
+      o.status === "active" &&
+      o.currentStage !== "INVOICE_SENT_TO_CUSTOMER" &&
+      o.currentStage !== "SCM_WORK_COMPLETED",
+  ).length;
+
+  const stageChartData =
+    statsData?.byStage?.map(item => ({
+      name: item.stage,
+      value: item.count,
+    })) ?? [];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="text-xs uppercase tracking-[0.25em] text-neutral-500">SCM</p>
+        <h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">SCM dashboard</h1>
+        <p className="mt-1 text-sm text-neutral-500">
+          Monitor active supply chain orders and identify bottlenecks in one view.
+        </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <div className="rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 px-4 py-4 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500">Active orders</p>
+          <p className="mt-3 text-3xl font-semibold text-[var(--text-primary)]">{activeCount}</p>
+        </div>
+        <div className="rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 px-4 py-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500">
+              Stalled &gt; 3 days
+            </p>
+            {stalledCount > 0 && (
+              <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                Attention
+              </span>
+            )}
+          </div>
+          <p className="mt-3 text-3xl font-semibold text-[var(--text-primary)]">{stalledCount}</p>
+        </div>
+        <div className="rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 px-4 py-4 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500">
+            Pending dispatches
+          </p>
+          <p className="mt-3 text-3xl font-semibold text-[var(--text-primary)]">{pendingDispatches}</p>
+        </div>
+        <div className="rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 px-4 py-4 shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500">
+            Invoices pending
+          </p>
+          <p className="mt-3 text-3xl font-semibold text-[var(--text-primary)]">{invoicesPending}</p>
+          <p className="mt-1 text-[11px] text-neutral-500">Work with finance to close these faster.</p>
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div className="space-y-3 rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 p-4 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-wrap gap-2 text-[11px] text-neutral-600">
+              <select
+                value={stageFilter}
+                onChange={event => {
+                  setPage(1);
+                  setStageFilter(event.target.value);
+                }}
+                className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1"
+              >
+                <option value="All">All stages</option>
+                <option value="ORDER_RECEIVED">Order received</option>
+                <option value="PO_RECEIVED_FROM_CLIENT">PO from client</option>
+                <option value="LEAD_TIME_CALCULATED">Lead time calculated</option>
+                <option value="PO_SENT_TO_DISTRIBUTOR">PO sent to distributor</option>
+                <option value="MATERIAL_IN_TRANSIT">Material in transit</option>
+                <option value="MATERIAL_DELIVERED_WAREHOUSE">At warehouse</option>
+                <option value="WAREHOUSE_DISPATCH_TO_CUSTOMER">Dispatched</option>
+                <option value="MR_MRF_DOCS_COLLECTED">Docs collected</option>
+                <option value="DOCS_SHARED_WITH_ACCOUNTS">Shared with accounts</option>
+                <option value="INVOICE_SENT_TO_CUSTOMER">Invoice sent</option>
+                <option value="SCM_WORK_COMPLETED">SCM completed</option>
+                <option value="DEPLOYMENT_STARTED">Deployment started</option>
+              </select>
+              <select
+                value={priorityFilter}
+                onChange={event => {
+                  setPage(1);
+                  setPriorityFilter(event.target.value);
+                }}
+                className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1"
+              >
+                <option value="All">All priorities</option>
+                <option value="LOW">Low</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HIGH">High</option>
+              </select>
+              <input
+                value={assigneeFilter}
+                onChange={event => {
+                  setPage(1);
+                  setAssigneeFilter(event.target.value);
+                }}
+                placeholder="Assignee"
+                className="w-28 rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2 text-[11px] text-neutral-600">
+              <input
+                type="date"
+                value={fromDate}
+                onChange={event => {
+                  setPage(1);
+                  setFromDate(event.target.value);
+                }}
+                className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1"
+              />
+              <input
+                type="date"
+                value={toDate}
+                onChange={event => {
+                  setPage(1);
+                  setToDate(event.target.value);
+                }}
+                className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1"
+              />
+              <input
+                value={search}
+                onChange={event => {
+                  setPage(1);
+                  setSearch(event.target.value);
+                }}
+                placeholder="Search client or order ref"
+                className="w-40 rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1"
+              />
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 text-xs">
+            <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,0.7fr)] bg-[var(--bg-elevated)]/60 px-4 py-2 text-[11px] font-medium text-neutral-500">
+              <div>Order</div>
+              <div>Client</div>
+              <div>Assigned to</div>
+              <div>Current stage</div>
+              <div>Priority</div>
+              <div>Expected</div>
+              <div>Days in stage</div>
+            </div>
+            {isLoading ? (
+              <div className="px-4 py-8 text-center text-[11px] text-neutral-500">Loading SCM orders…</div>
+            ) : isError ? (
+              <div className="px-4 py-8 text-center text-[11px] text-red-500">
+                Unable to load SCM orders. Please refresh or sign in again.
+              </div>
+            ) : ordersWithDerived.length === 0 ? (
+              <div className="px-4 py-8 text-center text-[11px] text-neutral-500">
+                No SCM orders are visible yet. Orders will appear once OVFs are approved.
+              </div>
+            ) : (
+              <div className="divide-y divide-[var(--border)]/70">
+                {ordersWithDerived.map(order => {
+                  const rowClasses = [
+                    "grid grid-cols-[minmax(0,1.3fr)_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,0.7fr)] items-center gap-3 px-4 py-3 cursor-pointer transition",
+                  ];
+                  if (order.isOverdueDelivery) {
+                    rowClasses.push("bg-red-50");
+                  }
+                  return (
+                    <div
+                      key={order.id}
+                      className={rowClasses.join(" ")}
+                      onClick={() => navigate(`/scm/orders/${order.id}`)}
+                    >
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold text-[var(--text-primary)]">{order.orderRef}</p>
+                        <p className="text-[11px] text-neutral-500 capitalize">{order.status}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[11px] text-neutral-800">{order.clientName}</p>
+                        <p className="truncate text-[11px] text-neutral-500">
+                          {order.clientAddress || "Address not captured"}
+                        </p>
+                      </div>
+                      <div className="text-[11px] text-neutral-700">{order.assignedTo}</div>
+                      <div className="flex items-center gap-1">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-medium text-emerald-600">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                          {order.currentStage}
+                        </span>
+                        {order.isStalled && (
+                          <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] text-amber-700">
+                            <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-amber-500" />
+                            Stuck
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <span
+                          className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium ${
+                            order.priority === "HIGH"
+                              ? "bg-red-100 text-red-700"
+                              : order.priority === "LOW"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-sky-100 text-sky-700"
+                          }`}
+                        >
+                          {order.priority}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-neutral-700">
+                        {order.expectedDelivery ? new Date(order.expectedDelivery).toLocaleDateString() : "Not planned"}
+                      </div>
+                      <div className="flex items-center justify-between gap-2 text-[11px] text-neutral-700">
+                        <span>{order.daysInStage}d</span>
+                        <button
+                          type="button"
+                          onClick={event => {
+                            event.stopPropagation();
+                            navigate(`/scm/orders/${order.id}`);
+                          }}
+                          className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1 text-[11px]"
+                        >
+                          View
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between pt-3 text-[11px] text-neutral-500">
+            <span>
+              Page {page} of {totalPages}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={page <= 1}
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1 disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                disabled={page >= totalPages}
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3 rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500">
+                Stage distribution
+              </p>
+              <p className="mt-1 text-xs text-neutral-500">How your active orders are distributed across SCM stages.</p>
+            </div>
+          </div>
+          <div className="mt-2 h-64">
+            {stageChartData.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-[11px] text-neutral-500">
+                No active SCM orders yet.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={stageChartData}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={50}
+                    outerRadius={80}
+                    paddingAngle={2}
+                  >
+                    {stageChartData.map((entry, index) => (
+                      <Cell key={entry.name} fill={chartColors[index % chartColors.length]} />
+                    ))}
+                  </Pie>
+                  <Legend
+                    layout="vertical"
+                    align="right"
+                    verticalAlign="middle"
+                    formatter={value => <span className="text-[11px] text-neutral-600">{String(value)}</span>}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ScmOrderDetailPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [activeSection, setActiveSection] = useState<string>("overview");
+  const [emailTo, setEmailTo] = useState("");
+  const [emailCc, setEmailCc] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [emailType, setEmailType] = useState<string>("custom");
+
+  const stages = [
+    "ORDER_RECEIVED",
+    "PO_RECEIVED_FROM_CLIENT",
+    "LEAD_TIME_CALCULATED",
+    "PO_SENT_TO_DISTRIBUTOR",
+    "MATERIAL_IN_TRANSIT",
+    "MATERIAL_DELIVERED_WAREHOUSE",
+    "WAREHOUSE_DISPATCH_TO_CUSTOMER",
+    "MR_MRF_DOCS_COLLECTED",
+    "DOCS_SHARED_WITH_ACCOUNTS",
+    "INVOICE_SENT_TO_CUSTOMER",
+    "SCM_WORK_COMPLETED",
+    "DEPLOYMENT_STARTED",
+  ];
+
+  const {
+    data: order,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: ["scm-order", id],
+    enabled: Boolean(id),
+    queryFn: async () => {
+      const response = await api.get(`/api/v1/scm/${id}`);
+      return response.data?.data as ScmOrderDetail;
+    },
+  });
+
+  const { data: emailsData, refetch: refetchEmails } = useQuery({
+    queryKey: ["scm-order-emails", id],
+    enabled: Boolean(id),
+    queryFn: async () => {
+      const response = await api.get(`/api/v1/scm/${id}/emails`);
+      return (response.data?.data as ScmEmailItem[]) ?? [];
+    },
+  });
+
+  const { data: activitiesData, refetch: refetchActivities } = useQuery({
+    queryKey: ["scm-order-activities", id],
+    enabled: Boolean(id),
+    queryFn: async () => {
+      const response = await api.get(`/api/v1/scm/${id}/activities`);
+      return (response.data?.data as ScmActivityItem[]) ?? [];
+    },
+  });
+
+  const sendEmailMutation = useMutation({
+    mutationFn: async () => {
+      if (!id) {
+        return;
+      }
+      const to = emailTo
+        .split(",")
+        .map(value => value.trim())
+        .filter(Boolean);
+      const cc = emailCc
+        .split(",")
+        .map(value => value.trim())
+        .filter(Boolean);
+      await api.post(`/api/v1/scm/${id}/emails`, {
+        to,
+        cc,
+        subject: emailSubject,
+        body: emailBody,
+        type: emailType,
+      });
+    },
+    onSuccess: async () => {
+      setEmailBody("");
+      await refetchEmails();
+    },
+  });
+
+  const addActivityMutation = useMutation({
+    mutationFn: async (payload: { type: string; description: string }) => {
+      if (!id) {
+        return;
+      }
+      await api.post(`/api/v1/scm/${id}/activities`, payload);
+    },
+    onSuccess: async () => {
+      await refetchActivities();
+    },
+  });
+
+  const advanceStageMutation = useMutation({
+    mutationFn: async (nextStage: string) => {
+      if (!id) {
+        return;
+      }
+      await api.post(`/api/v1/scm/${id}/stages/advance`, {
+        stage: nextStage,
+      });
+    },
+    onSuccess: async () => {
+      await refetch();
+    },
+  });
+
+  const currentStageIndex = order ? stages.indexOf(order.currentStage) : -1;
+  const nextStage = currentStageIndex >= 0 && currentStageIndex < stages.length - 1 ? stages[currentStageIndex + 1] : null;
+
+  const handleApplyTemplate = (template: "po-distributor" | "material-dispatch" | "invoice") => {
+    if (!order) {
+      return;
+    }
+    const baseLines = [`Order ref: ${order.orderRef}`, `Client: ${order.clientName}`];
+    if (template === "po-distributor") {
+      setEmailType("po_distributor");
+      setEmailSubject(`PO for order ${order.orderRef}`);
+      setEmailBody(
+        [
+          "Dear Partner,",
+          "",
+          "Please find the purchase order details for the below SCM order.",
+          "",
+          ...baseLines,
+          "",
+          "Regards,",
+        ].join("\n"),
+      );
+    } else if (template === "material-dispatch") {
+      setEmailType("material_dispatch");
+      setEmailSubject(`Dispatch update for order ${order.orderRef}`);
+      setEmailBody(
+        [
+          "Hi,",
+          "",
+          "Material has been dispatched/received for the below SCM order.",
+          "",
+          ...baseLines,
+          "",
+          "Regards,",
+        ].join("\n"),
+      );
+    } else if (template === "invoice") {
+      setEmailType("invoice_customer");
+      setEmailSubject(`Invoice for order ${order.orderRef}`);
+      setEmailBody(
+        [
+          "Dear Customer,",
+          "",
+          "Please find the invoice details for your order.",
+          "",
+          ...baseLines,
+          "",
+          "Regards,",
+        ].join("\n"),
+      );
+    }
+  };
+
+  if (isLoading) {
+    return <p className="text-xs text-neutral-500">Loading SCM order…</p>;
+  }
+
+  if (isError || !order) {
+    return (
+      <div className="space-y-3 text-xs text-neutral-500">
+        <p>Unable to load SCM order.</p>
+        <button
+          type="button"
+          onClick={() => navigate("/scm")}
+          className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-1.5 text-[11px]"
+        >
+          Back to SCM dashboard
+        </button>
+      </div>
+    );
+  }
+
+  const daysSinceCreated = formatDistanceToNow(new Date(order.createdAt), {
+    addSuffix: true,
+  });
+
+  const delayWarning = (() => {
+    if (!order.expectedDelivery) {
+      return null;
+    }
+    const now = new Date();
+    const expected = new Date(order.expectedDelivery);
+    const diffMs = expected.getTime() - now.getTime();
+    const diffDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
+    if (diffDays >= 3) {
+      return {
+        level: "ok" as const,
+        message: `Timeline healthy. Expected delivery in ~${diffDays} days.`,
+      };
+    }
+    if (diffDays >= 0) {
+      return {
+        level: "risk" as const,
+        message: `At risk of delay. Expected delivery in ~${diffDays} days.`,
+      };
+    }
+    return {
+      level: "delayed" as const,
+      message: `Likely delayed by ${Math.abs(diffDays)} days against expected delivery.`,
+    };
+  })();
+
+  const accountsHandoffDone =
+    order.currentStage === "DOCS_SHARED_WITH_ACCOUNTS" ||
+    order.currentStage === "INVOICE_SENT_TO_CUSTOMER" ||
+    order.currentStage === "SCM_WORK_COMPLETED" ||
+    order.currentStage === "DEPLOYMENT_STARTED";
+
+  const deploymentHandoffReady =
+    order.currentStage === "SCM_WORK_COMPLETED" || order.currentStage === "DEPLOYMENT_STARTED";
+
+  const whatsappLink = (() => {
+    if (!order.clientName) {
+      return null;
+    }
+    const textLines = [
+      "Hi, this is SCM team from Cache Digitech.",
+      `Order ref: ${order.orderRef}`,
+      `Client: ${order.clientName}`,
+      `Current stage: ${order.currentStage}`,
+    ];
+    const encoded = encodeURIComponent(textLines.join("\n"));
+    return `https://wa.me/?text=${encoded}`;
+  })();
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
+        <div>
+          <p className="text-xs uppercase tracking-[0.25em] text-neutral-500">SCM order</p>
+          <h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{order.orderRef}</h1>
+          <p className="mt-1 text-sm text-neutral-500">
+            {order.clientName} · Created {daysSinceCreated}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+          <span
+            className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium ${
+              order.priority === "HIGH"
+                ? "bg-red-100 text-red-700"
+                : order.priority === "LOW"
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-sky-100 text-sky-700"
+            }`}
+          >
+            Priority {order.priority}
+          </span>
+          {order.expectedDelivery && (
+            <span className="inline-flex items-center rounded-full bg-[var(--bg-surface)] px-3 py-1 text-[11px] text-neutral-700">
+              Expected delivery {new Date(order.expectedDelivery).toLocaleDateString()}
+            </span>
+          )}
+          {delayWarning && (
+            <span
+              className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium ${
+                delayWarning.level === "ok"
+                  ? "bg-emerald-100 text-emerald-700"
+                  : delayWarning.level === "risk"
+                  ? "bg-amber-100 text-amber-700"
+                  : "bg-red-100 text-red-700"
+              }`}
+            >
+              {delayWarning.message}
+            </span>
+          )}
+          {nextStage && (
+            <button
+              type="button"
+              onClick={() => advanceStageMutation.mutate(nextStage)}
+              disabled={advanceStageMutation.isLoading}
+              className="rounded-full bg-[var(--accent-primary)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-white shadow-[0_10px_30px_rgba(37,99,235,0.45)] disabled:opacity-70"
+            >
+              {advanceStageMutation.isLoading ? "Advancing…" : `Advance to ${nextStage}`}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 px-4 py-4 text-xs shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            {stages.map(stage => {
+              const index = stages.indexOf(stage);
+              const isCompleted = index < currentStageIndex;
+              const isCurrent = stage === order.currentStage;
+              return (
+                <div key={stage} className="flex items-center gap-1">
+                  <span
+                    className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] ${
+                      isCurrent
+                        ? "bg-emerald-500 text-white"
+                        : isCompleted
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-neutral-100 text-neutral-500"
+                    }`}
+                  >
+                    {stage}
+                  </span>
+                  {index < stages.length - 1 && (
+                    <span className="h-px w-4 bg-gradient-to-r from-neutral-300 to-neutral-200" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+        <div className="space-y-2 text-[11px]">
+          {[
+            { id: "overview", label: "Overview" },
+            { id: "procurement", label: "Procurement" },
+            { id: "warehouse", label: "Warehouse" },
+            { id: "dispatch", label: "Dispatch" },
+            { id: "documents", label: "Documents" },
+            { id: "expenses", label: "Expenses" },
+            { id: "emails", label: "Email centre" },
+            { id: "timeline", label: "Activities timeline" },
+          ].map(item => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => {
+                setActiveSection(item.id);
+                const el = document.getElementById(`scm-${item.id}`);
+                if (el) {
+                  el.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+              }}
+              className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left ${
+                activeSection === item.id
+                  ? "bg-[var(--accent-primary)]/10 text-[var(--accent-primary)]"
+                  : "bg-[var(--bg-surface)] text-neutral-600"
+              }`}
+            >
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="space-y-6">
+          <section id="scm-overview" className="space-y-4 rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 p-4 text-xs shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500">Overview</p>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Linked records and high-level tracking details for this SCM order.
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-1">
+                <p className="text-[11px] text-neutral-500">Client</p>
+                <p className="text-sm text-[var(--text-primary)]">{order.clientName}</p>
+                {order.clientAddress && (
+                  <p className="text-[11px] text-neutral-500">{order.clientAddress}</p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <p className="text-[11px] text-neutral-500">Linked records</p>
+                <div className="flex flex-col gap-1">
+                  {order.linkedLeadId && (
+                    <span className="inline-flex rounded-full bg-[var(--bg-elevated)] px-3 py-1 text-[11px] text-neutral-700">
+                      Lead #{order.linkedLeadId}
+                    </span>
+                  )}
+                  {order.linkedDealId && (
+                    <span className="inline-flex rounded-full bg-[var(--bg-elevated)] px-3 py-1 text-[11px] text-neutral-700">
+                      Deal #{order.linkedDealId}
+                    </span>
+                  )}
+                  {order.linkedOVFId && (
+                    <span className="inline-flex rounded-full bg-[var(--bg-elevated)] px-3 py-1 text-[11px] text-neutral-700">
+                      OVF #{order.linkedOVFId}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[11px] text-neutral-500">Financials</p>
+                <p className="text-sm text-[var(--text-primary)]">
+                  {order.estimatedValue != null
+                    ? `₹ ${order.estimatedValue.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
+                    : "Estimation pending"}
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500">
+                Team handoff tracker
+              </p>
+              <div className="grid gap-2 text-[11px] text-neutral-700">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  <span>Sales → SCM handoff completed (OVF approved and SCM order created).</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      accountsHandoffDone ? "bg-emerald-500" : "bg-amber-400"
+                    }`}
+                  />
+                  <span>
+                    SCM → Accounts handoff{" "}
+                    {accountsHandoffDone ? "completed (documents shared)." : "pending documents sharing."}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      deploymentHandoffReady ? "bg-emerald-500" : "bg-neutral-400"
+                    }`}
+                  />
+                  <span>
+                    SCM → Deployment handoff{" "}
+                    {deploymentHandoffReady ? "ready (SCM work completed)." : "will be ready after SCM completion."}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section
+            id="scm-documents"
+            className="space-y-4 rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 p-4 text-xs shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500">Documents</p>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Download or share documents collected through the SCM process.
+                </p>
+              </div>
+            </div>
+            {order.documents.length === 0 ? (
+              <p className="text-[11px] text-neutral-500">No documents have been uploaded yet.</p>
+            ) : (
+              <div className="divide-y divide-[var(--border)]/70 rounded-xl border border-[var(--border)]/80 bg-[var(--bg-elevated)]/40">
+                {order.documents.map(doc => (
+                  <div key={doc.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                    <div>
+                      <p className="text-[11px] font-medium text-[var(--text-primary)]">{doc.name}</p>
+                      <p className="text-[11px] text-neutral-500">
+                        {doc.type} · Uploaded {formatDistanceToNow(new Date(doc.uploadedAt), { addSuffix: true })}
+                      </p>
+                    </div>
+                    {doc.fileUrl && (
+                      <a
+                        href={doc.fileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-full border border-[var(--border)] bg-[var(--bg-surface)] px-3 py-1 text-[11px] text-[var(--accent-primary)]"
+                      >
+                        Open
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section
+            id="scm-expenses"
+            className="space-y-4 rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 p-4 text-xs shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500">Expenses</p>
+                <p className="mt-1 text-xs text-neutral-500">View spend recorded against this SCM order.</p>
+              </div>
+            </div>
+            {order.expenses.length === 0 ? (
+              <p className="text-[11px] text-neutral-500">No expenses have been logged yet.</p>
+            ) : (
+              <div className="overflow-hidden rounded-xl border border-[var(--border)]/80 bg-[var(--bg-elevated)]/40">
+                <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.9fr)] bg-[var(--bg-elevated)]/60 px-3 py-2 text-[11px] font-medium text-neutral-500">
+                  <div>Category</div>
+                  <div>Amount</div>
+                  <div>Status</div>
+                  <div>Logged at</div>
+                </div>
+                <div className="divide-y divide-[var(--border)]/70">
+                  {order.expenses.map(expense => (
+                    <div key={expense.id} className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.9fr)] items-center gap-3 px-3 py-2">
+                      <div className="text-[11px] text-[var(--text-primary)]">{expense.category}</div>
+                      <div className="text-[11px] text-[var(--text-primary)]">
+                        ₹ {expense.amount.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                      </div>
+                      <div className="text-[11px] text-neutral-700">{expense.status}</div>
+                      <div className="text-[11px] text-neutral-500">
+                        {new Date(expense.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section
+            id="scm-emails"
+            className="space-y-4 rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 p-4 text-xs shadow-sm"
+          >
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div className="flex-1 space-y-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500">
+                    Email centre
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Compose SCM emails and keep a log of what was sent for this order.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleApplyTemplate("po-distributor")}
+                      className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1 text-[11px]"
+                    >
+                      PO to distributor
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyTemplate("material-dispatch")}
+                      className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1 text-[11px]"
+                    >
+                      Material dispatch
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyTemplate("invoice")}
+                      className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1 text-[11px]"
+                    >
+                      Invoice to customer
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    <input
+                      value={emailTo}
+                      onChange={event => setEmailTo(event.target.value)}
+                      placeholder="To (comma separated)"
+                      className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1.5 text-xs"
+                    />
+                    <input
+                      value={emailCc}
+                      onChange={event => setEmailCc(event.target.value)}
+                      placeholder="Cc (comma separated)"
+                      className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1.5 text-xs"
+                    />
+                    <input
+                      value={emailSubject}
+                      onChange={event => setEmailSubject(event.target.value)}
+                      placeholder="Subject"
+                      className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1.5 text-xs"
+                    />
+                    <textarea
+                      value={emailBody}
+                      onChange={event => setEmailBody(event.target.value)}
+                      rows={6}
+                      placeholder="Email body"
+                      className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2 text-xs"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  {whatsappLink && (
+                    <a
+                      href={whatsappLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-full border border-emerald-500/60 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-700"
+                    >
+                      WhatsApp
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    disabled={sendEmailMutation.isLoading}
+                    onClick={() => sendEmailMutation.mutate()}
+                    className="rounded-full bg-[var(--accent-primary)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-white disabled:opacity-70"
+                  >
+                    {sendEmailMutation.isLoading ? "Sending…" : "Send email"}
+                  </button>
+                </div>
+              </div>
+              <div className="h-[1px] w-full bg-[var(--border)]/60 md:h-auto md:w-px" />
+              <div className="w-full max-w-xs space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500">Email log</p>
+                <div className="max-h-64 space-y-2 overflow-y-auto rounded-xl border border-[var(--border)]/80 bg-[var(--bg-elevated)]/40 p-2">
+                  {emailsData && emailsData.length > 0 ? (
+                    emailsData.map(email => (
+                      <div key={email.id} className="space-y-1 rounded-lg bg-[var(--bg-surface)] px-2 py-1.5">
+                        <p className="text-[11px] font-medium text-[var(--text-primary)]">{email.subject}</p>
+                        <p className="text-[10px] text-neutral-500">
+                          To {email.to.join(", ")} ·{" "}
+                          {formatDistanceToNow(new Date(email.sentAt), {
+                            addSuffix: true,
+                          })}
+                        </p>
+                        <p className="line-clamp-2 text-[10px] text-neutral-500 whitespace-pre-line">{email.body}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-[11px] text-neutral-500">No emails have been logged yet.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section
+            id="scm-timeline"
+            className="space-y-4 rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 p-4 text-xs shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500">
+                  Activities timeline
+                </p>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Automatic log of stage changes, emails, documents, expenses, plus manual notes.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-elevated)]/60 p-3">
+              <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-neutral-500">
+                Quick manual log
+              </p>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-neutral-600">
+                <button
+                  type="button"
+                  onClick={() => addActivityMutation.mutate({ type: "NOTE", description: "Note added." })}
+                  className="rounded-full border border-[var(--border)] bg-[var(--bg-surface)] px-3 py-1"
+                >
+                  Add note
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    addActivityMutation.mutate({ type: "CALL", description: "Call with stakeholder logged." })
+                  }
+                  className="rounded-full border border-[var(--border)] bg-[var(--bg-surface)] px-3 py-1"
+                >
+                  Log call
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    addActivityMutation.mutate({ type: "MEETING", description: "Meeting with team logged." })
+                  }
+                  className="rounded-full border border-[var(--border)] bg-[var(--bg-surface)] px-3 py-1"
+                >
+                  Log meeting
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {(activitiesData ?? []).length === 0 ? (
+                <p className="text-[11px] text-neutral-500">
+                  No activities visible yet. Stage changes, emails, documents, and expenses will show here.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {activitiesData?.map(activity => (
+                    <div
+                      key={activity.id}
+                      className="flex gap-3 rounded-2xl border border-[var(--border)]/70 bg-[var(--bg-elevated)]/80 p-3 text-[11px]"
+                    >
+                      <div className="mt-1 h-2 w-2 flex-none rounded-full bg-emerald-500" />
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-neutral-900 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-white">
+                            {activity.type}
+                          </span>
+                          <span className="text-[10px] text-neutral-500">
+                            {new Date(activity.createdAt).toLocaleString()}
+                          </span>
+                          <span className="text-[10px] text-neutral-500">by {activity.createdBy}</span>
+                        </div>
+                        <p className="whitespace-pre-wrap text-[11px] text-neutral-800">
+                          {activity.description}
+                        </p>
+                        {activity.fileUrl && (
+                          <a
+                            href={activity.fileUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex text-[11px] text-[var(--accent-primary)]"
+                          >
+                            View file
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ScmProcurementListPage() {
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["scm-procurement-list", { page, pageSize }],
+    queryFn: async () => {
+      const response = await api.get("/api/v1/scm", {
+        params: {
+          page,
+          pageSize,
+          status: "active",
+        },
+      });
+      const payload = response.data?.data as
+        | { items: ScmOrderListItem[]; total: number; page: number; pageSize: number }
+        | undefined;
+      const items = payload?.items ?? [];
+
+      const rows = await Promise.all(
+        items.map(async order => {
+          try {
+            const res = await api.get(`/api/v1/scm/${order.id}/procurement`);
+            const record = (res.data?.data ?? null) as
+              | (ScmProcurementRecord & { distributorPODate?: string; expectedDelivery?: string })
+              | null;
+            return { order, procurement: record };
+          } catch {
+            return { order, procurement: null };
+          }
+        }),
+      );
+
+      return {
+        rows,
+        total: payload?.total ?? 0,
+        page: payload?.page ?? page,
+        pageSize: payload?.pageSize ?? pageSize,
+      };
+    },
+  });
+
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="text-xs uppercase tracking-[0.25em] text-neutral-500">SCM</p>
+        <h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">Procurement list</h1>
+        <p className="mt-1 text-sm text-neutral-500">
+          View all active orders where procurement coordination is required.
+        </p>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 text-xs shadow-sm">
+        <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.3fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,0.8fr)_minmax(0,0.7fr)] bg-[var(--bg-elevated)]/60 px-4 py-2 text-[11px] font-medium text-neutral-500">
+          <div>Order</div>
+          <div>Client</div>
+          <div>Distributor</div>
+          <div>PO sent on</div>
+          <div>Expected delivery</div>
+          <div>Status</div>
+        </div>
+        {isLoading ? (
+          <div className="px-4 py-8 text-center text-[11px] text-neutral-500">Loading procurement records…</div>
+        ) : isError ? (
+          <div className="px-4 py-8 text-center text-[11px] text-red-500">
+            Unable to load procurement list. Please refresh or sign in again.
+          </div>
+        ) : !data || data.rows.length === 0 ? (
+          <div className="px-4 py-8 text-center text-[11px] text-neutral-500">
+            No active SCM orders found for procurement.
+          </div>
+        ) : (
+          <div className="divide-y divide-[var(--border)]/70">
+            {data.rows.map(row => {
+              const { order, procurement } = row;
+              const poDate = procurement?.distributorPODate
+                ? new Date(procurement.distributorPODate).toLocaleDateString()
+                : "Not sent";
+              const expectedDelivery = procurement?.expectedDelivery
+                ? new Date(procurement.expectedDelivery).toLocaleDateString()
+                : order.expectedDelivery
+                ? new Date(order.expectedDelivery).toLocaleDateString()
+                : "Not planned";
+              return (
+                <div
+                  key={order.id}
+                  className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.3fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,0.8fr)_minmax(0,0.7fr)] items-center gap-3 px-4 py-3"
+                >
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold text-[var(--text-primary)]">{order.orderRef}</p>
+                    <p className="text-[11px] text-neutral-500 capitalize">{order.currentStage}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-neutral-800">{order.clientName}</p>
+                    <p className="truncate text-[11px] text-neutral-500">
+                      {order.clientAddress || "Address not captured"}
+                    </p>
+                  </div>
+                  <div className="text-[11px] text-neutral-700">
+                    {procurement?.distributorName || "Not captured"}
+                  </div>
+                  <div className="text-[11px] text-neutral-700">{poDate}</div>
+                  <div className="text-[11px] text-neutral-700">{expectedDelivery}</div>
+                  <div className="text-[11px] text-neutral-700">
+                    {procurement?.status || "pending"}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between pt-1 text-[11px] text-neutral-500">
+        <span>
+          Page {page} of {totalPages}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={page <= 1}
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1 disabled:opacity-50"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            disabled={page >= totalPages}
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1 disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ScmDispatchListPage() {
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["scm-dispatch-list", { page, pageSize }],
+    queryFn: async () => {
+      const response = await api.get("/api/v1/scm", {
+        params: {
+          page,
+          pageSize,
+          status: "active",
+        },
+      });
+      const payload = response.data?.data as
+        | { items: ScmOrderListItem[]; total: number; page: number; pageSize: number }
+        | undefined;
+      const items = payload?.items ?? [];
+
+      const rows = await Promise.all(
+        items.map(async order => {
+          try {
+            const res = await api.get(`/api/v1/scm/${order.id}/dispatch`);
+            const record = (res.data?.data ?? null) as ScmDispatchRecord | null;
+            return { order, dispatch: record };
+          } catch {
+            return { order, dispatch: null };
+          }
+        }),
+      );
+
+      const sortedRows = rows.slice().sort((a, b) => {
+        const aDate = a.dispatch?.dispatchDate ? new Date(a.dispatch.dispatchDate).getTime() : 0;
+        const bDate = b.dispatch?.dispatchDate ? new Date(b.dispatch.dispatchDate).getTime() : 0;
+        return bDate - aDate;
+      });
+
+      return {
+        rows: sortedRows,
+        total: payload?.total ?? 0,
+        page: payload?.page ?? page,
+        pageSize: payload?.pageSize ?? pageSize,
+      };
+    },
+  });
+
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="text-xs uppercase tracking-[0.25em] text-neutral-500">SCM</p>
+        <h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">Dispatch tracker</h1>
+        <p className="mt-1 text-sm text-neutral-500">
+          Track warehouse dispatches and customer deliveries across all SCM orders.
+        </p>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 text-xs shadow-sm">
+        <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)] bg-[var(--bg-elevated)]/60 px-4 py-2 text-[11px] font-medium text-neutral-500">
+          <div>Order</div>
+          <div>Client</div>
+          <div>Dispatch date</div>
+          <div>Delivered at</div>
+          <div>Vehicle</div>
+          <div>Status</div>
+        </div>
+        {isLoading ? (
+          <div className="px-4 py-8 text-center text-[11px] text-neutral-500">Loading dispatch records…</div>
+        ) : isError ? (
+          <div className="px-4 py-8 text-center text-[11px] text-red-500">
+            Unable to load dispatch tracker. Please refresh or sign in again.
+          </div>
+        ) : !data || data.rows.length === 0 ? (
+          <div className="px-4 py-8 text-center text-[11px] text-neutral-500">
+            No SCM orders with dispatch information yet.
+          </div>
+        ) : (
+          <div className="divide-y divide-[var(--border)]/70">
+            {data.rows.map(row => {
+              const { order, dispatch } = row;
+              const dispatchDate = dispatch?.dispatchDate
+                ? new Date(dispatch.dispatchDate).toLocaleDateString()
+                : "Not dispatched";
+              const deliveredAt = dispatch?.deliveredAt
+                ? new Date(dispatch.deliveredAt).toLocaleDateString()
+                : "In transit";
+              const isDelivered = Boolean(dispatch?.deliveredAt);
+              return (
+                <div
+                  key={order.id}
+                  className={`grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.7fr)] items-center gap-3 px-4 py-3 ${
+                    !isDelivered && dispatch?.dispatchDate ? "bg-amber-50" : ""
+                  }`}
+                >
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold text-[var(--text-primary)]">{order.orderRef}</p>
+                    <p className="text-[11px] text-neutral-500 capitalize">{order.currentStage}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-neutral-800">{order.clientName}</p>
+                    <p className="truncate text-[11px] text-neutral-500">
+                      {order.clientAddress || "Address not captured"}
+                    </p>
+                  </div>
+                  <div className="text-[11px] text-neutral-700">{dispatchDate}</div>
+                  <div className="text-[11px] text-neutral-700">{deliveredAt}</div>
+                  <div className="text-[11px] text-neutral-700">
+                    {dispatch?.vehicleDetails || dispatch?.driverName || "Not logged"}
+                  </div>
+                  <div className="text-[11px] text-neutral-700">
+                    {isDelivered ? "Delivered" : dispatch?.dispatchDate ? "In transit" : "Pending dispatch"}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between pt-1 text-[11px] text-neutral-500">
+        <span>
+          Page {page} of {totalPages}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={page <= 1}
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1 disabled:opacity-50"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            disabled={page >= totalPages}
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1 disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ScmDocumentsCenterPage() {
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["scm-documents-center", { page, pageSize }],
+    queryFn: async () => {
+      const response = await api.get("/api/v1/scm", {
+        params: {
+          page,
+          pageSize,
+          status: "active",
+        },
+      });
+      const payload = response.data?.data as
+        | { items: ScmOrderListItem[]; total: number; page: number; pageSize: number }
+        | undefined;
+      const items = payload?.items ?? [];
+
+      const documents: {
+        order: ScmOrderListItem;
+        document: ScmDocument;
+      }[] = [];
+
+      await Promise.all(
+        items.map(async order => {
+          try {
+            const res = await api.get(`/api/v1/scm/${order.id}/documents`);
+            const docs = (res.data?.data as ScmDocument[]) ?? [];
+            docs.forEach(doc => {
+              documents.push({ order, document: doc });
+            });
+          } catch {
+            // ignore
+          }
+        }),
+      );
+
+      documents.sort(
+        (a, b) =>
+          new Date(b.document.uploadedAt).getTime() - new Date(a.document.uploadedAt).getTime(),
+      );
+
+      return {
+        rows: documents,
+        total: payload?.total ?? 0,
+        page: payload?.page ?? page,
+        pageSize: payload?.pageSize ?? pageSize,
+      };
+    },
+  });
+
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="text-xs uppercase tracking-[0.25em] text-neutral-500">SCM</p>
+        <h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">Document centre</h1>
+        <p className="mt-1 text-sm text-neutral-500">
+          Find documents across all SCM orders in one searchable view.
+        </p>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 text-xs shadow-sm">
+        <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.3fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,0.9fr)] bg-[var(--bg-elevated)]/60 px-4 py-2 text-[11px] font-medium text-neutral-500">
+          <div>Order</div>
+          <div>Client</div>
+          <div>Document</div>
+          <div>Type</div>
+          <div>Uploaded</div>
+        </div>
+        {isLoading ? (
+          <div className="px-4 py-8 text-center text-[11px] text-neutral-500">Loading documents…</div>
+        ) : isError ? (
+          <div className="px-4 py-8 text-center text-[11px] text-red-500">
+            Unable to load documents centre. Please refresh or sign in again.
+          </div>
+        ) : !data || data.rows.length === 0 ? (
+          <div className="px-4 py-8 text-center text-[11px] text-neutral-500">
+            No documents available across active SCM orders.
+          </div>
+        ) : (
+          <div className="divide-y divide-[var(--border)]/70">
+            {data.rows.map(row => {
+              const { order, document } = row;
+              return (
+                <div
+                  key={document.id}
+                  className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.3fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,0.9fr)] items-center gap-3 px-4 py-3"
+                >
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold text-[var(--text-primary)]">{order.orderRef}</p>
+                    <p className="text-[11px] text-neutral-500 capitalize">{order.currentStage}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-neutral-800">{order.clientName}</p>
+                    <p className="truncate text-[11px] text-neutral-500">
+                      {order.clientAddress || "Address not captured"}
+                    </p>
+                  </div>
+                  <div className="text-[11px] text-[var(--accent-primary)]">
+                    {document.fileUrl ? (
+                      <a
+                        href={document.fileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline"
+                      >
+                        {document.name}
+                      </a>
+                    ) : (
+                      document.name
+                    )}
+                  </div>
+                  <div className="text-[11px] text-neutral-700">{document.type}</div>
+                  <div className="text-[11px] text-neutral-700">
+                    {formatDistanceToNow(new Date(document.uploadedAt), { addSuffix: true })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between pt-1 text-[11px] text-neutral-500">
+        <span>
+          Page {page} of {totalPages}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={page <= 1}
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1 disabled:opacity-50"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            disabled={page >= totalPages}
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1 disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeploymentDashboardPage() {
+  const { data: summary } = useQuery({
+    queryKey: ["deployment-summary"],
+    queryFn: async () => {
+      const response = await api.get("/api/v1/deployment/summary");
+      return response.data?.data as { activeCount: number } | undefined;
+    },
+  });
+
+  const { data: list } = useQuery({
+    queryKey: ["deployment-projects", { page: 1, pageSize: 10 }],
+    queryFn: async () => {
+      const response = await api.get("/api/v1/deployment/projects", {
+        params: {
+          page: 1,
+          pageSize: 10,
+        },
+      });
+      return response.data?.data as
+        | { items: DeploymentProjectListItem[]; total: number; page: number; pageSize: number }
+        | undefined;
+    },
+  });
+
+  const projects = list?.items ?? [];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="text-xs uppercase tracking-[0.25em] text-neutral-500">Deployment</p>
+        <h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">Deployment dashboard</h1>
+        <p className="mt-1 text-sm text-neutral-500">
+          Live snapshot of active deployment projects after SCM work completion.
+        </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 p-4 text-xs shadow-sm">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500">Active projects</p>
+          <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">
+            {summary?.activeCount ?? 0}
+          </p>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 text-xs shadow-sm">
+        <div className="flex items-center justify-between border-b border-[var(--border)]/70 px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500">
+            Recently created deployment projects
+          </p>
+        </div>
+        {projects.length === 0 ? (
+          <div className="px-4 py-8 text-center text-[11px] text-neutral-500">
+            No deployment projects yet. When SCM completes an order, deployment will auto-create a project.
+          </div>
+        ) : (
+          <div className="divide-y divide-[var(--border)]/70">
+            {projects.map(project => (
+              <div key={project.id} className="flex items-center justify-between gap-4 px-4 py-3">
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="truncate text-[11px] font-semibold text-[var(--text-primary)]">
+                    {project.projectRef} · {project.clientName}
+                  </p>
+                  <p className="truncate text-[11px] text-neutral-500">
+                    {project.clientAddress || "Address not captured"}
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-1 text-[11px] text-neutral-600">
+                  <span className="rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 text-[10px] uppercase tracking-[0.18em]">
+                    {project.currentStage}
+                  </span>
+                  <span className="text-[10px]">
+                    Expected go-live{" "}
+                    {project.expectedGoLive
+                      ? new Date(project.expectedGoLive).toLocaleDateString()
+                      : "not planned"}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DeploymentProjectsPage() {
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+
+  const navigate = useNavigate();
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["deployment-projects", { page, pageSize }],
+    queryFn: async () => {
+      const response = await api.get("/api/v1/deployment/projects", {
+        params: {
+          page,
+          pageSize,
+        },
+      });
+      return response.data?.data as
+        | { items: DeploymentProjectListItem[]; total: number; page: number; pageSize: number }
+        | undefined;
+    },
+  });
+
+  const projects = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="text-xs uppercase tracking-[0.25em] text-neutral-500">Deployment</p>
+        <h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">Projects</h1>
+        <p className="mt-1 text-sm text-neutral-500">
+          All deployment projects created after SCM completion.
+        </p>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 text-xs shadow-sm">
+        <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)_minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.9fr)] bg-[var(--bg-elevated)]/60 px-4 py-2 text-[11px] font-medium text-neutral-500">
+          <div>Project</div>
+          <div>Client</div>
+          <div>SCM order</div>
+          <div>Stage</div>
+          <div>Expected go-live</div>
+        </div>
+        {isLoading ? (
+          <div className="px-4 py-8 text-center text-[11px] text-neutral-500">Loading deployment projects…</div>
+        ) : isError ? (
+          <div className="px-4 py-8 text-center text-[11px] text-red-500">
+            Unable to load deployment projects. Please refresh or sign in again.
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="px-4 py-8 text-center text-[11px] text-neutral-500">
+            No deployment projects found yet.
+          </div>
+        ) : (
+          <div className="divide-y divide-[var(--border)]/70">
+            {projects.map(project => (
+              <button
+                key={project.id}
+                type="button"
+                onClick={() => navigate(`/deployment/projects/${project.id}`)}
+                className="grid w-full grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)_minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.9fr)] items-center gap-3 px-4 py-3 text-left hover:bg-[var(--bg-elevated)]/60"
+              >
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold text-[var(--text-primary)]">
+                    {project.projectRef}
+                  </p>
+                  <p className="text-[11px] text-neutral-500">Priority {project.priority}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[11px] text-neutral-800">{project.clientName}</p>
+                  <p className="truncate text-[11px] text-neutral-500">
+                    {project.clientAddress || "Address not captured"}
+                  </p>
+                </div>
+                <div className="text-[11px] text-neutral-700">{project.linkedSCMOrderId}</div>
+                <div className="text-[11px] text-neutral-700">{project.currentStage}</div>
+                <div className="text-[11px] text-neutral-700">
+                  {project.expectedGoLive
+                    ? new Date(project.expectedGoLive).toLocaleDateString()
+                    : "Not planned"}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between pt-1 text-[11px] text-neutral-500">
+        <span>
+          Page {page} of {totalPages}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={page <= 1}
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1 disabled:opacity-50"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            disabled={page >= totalPages}
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1 disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeploymentTasksPage() {
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "in_progress" | "completed">("pending");
+  const [priorityFilter, setPriorityFilter] = useState<"all" | "LOW" | "MEDIUM" | "HIGH">("all");
+  const [projectFilter, setProjectFilter] = useState<string>("all");
+
+  const { data: tasks, isLoading, isError, refetch } = useQuery({
+    queryKey: ["deployment-tasks", { statusFilter, priorityFilter, projectFilter }],
+    queryFn: async () => {
+      const response = await api.get("/api/v1/deployment/tasks", {
+        params: {
+          status: statusFilter,
+          priority: priorityFilter,
+          projectId: projectFilter,
+        },
+      });
+      return (response.data?.data ?? []) as DeploymentTaskListItem[];
+    },
+  });
+
+  const navigate = useNavigate();
+
+  const uniqueProjects =
+    tasks?.reduce<{ id: string; label: string }[]>((acc, task) => {
+      const exists = acc.some(p => p.id === task.project.id);
+      if (!exists) {
+        acc.push({
+          id: task.project.id,
+          label: `${task.project.projectRef} · ${task.project.clientName}`,
+        });
+      }
+      return acc;
+    }, []) ?? [];
+
+  const now = new Date();
+
+  const sortedTasks =
+    tasks
+      ?.slice()
+      .sort((a, b) => {
+        const aDue = a.dueDate ? new Date(a.dueDate) : null;
+        const bDue = b.dueDate ? new Date(b.dueDate) : null;
+
+        const aOverdue =
+          a.status !== "completed" && aDue != null && aDue.getTime() < now.setHours(0, 0, 0, 0);
+        const bOverdue =
+          b.status !== "completed" && bDue != null && bDue.getTime() < now.setHours(0, 0, 0, 0);
+
+        if (aOverdue && !bOverdue) return -1;
+        if (!aOverdue && bOverdue) return 1;
+
+        if (aDue && bDue) {
+          return aDue.getTime() - bDue.getTime();
+        }
+        if (aDue && !bDue) return -1;
+        if (!aDue && bDue) return 1;
+        return 0;
+      }) ?? [];
+
+  const markComplete = async (task: DeploymentTaskListItem) => {
+    try {
+      await api.post(`/api/v1/deployment/${task.projectId}/tasks/${task.id}/complete`, {
+        completionNote: "",
+        evidenceUrl: null,
+      });
+      await refetch();
+    } catch (error) {
+      console.error("Failed to complete task", error);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="text-xs uppercase tracking-[0.25em] text-neutral-500">Deployment</p>
+        <h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">My deployment tasks</h1>
+        <p className="mt-1 text-sm text-neutral-500">
+          All tasks assigned to you across deployment projects. Overdue items are highlighted.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 text-[11px]">
+        <div className="flex items-center gap-2">
+          <span className="text-neutral-500">Status</span>
+          <select
+            value={statusFilter}
+            onChange={event => setStatusFilter(event.target.value as any)}
+            className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1 text-[11px] outline-none"
+          >
+            <option value="all">All</option>
+            <option value="pending">Pending</option>
+            <option value="in_progress">In progress</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-neutral-500">Priority</span>
+          <select
+            value={priorityFilter}
+            onChange={event => setPriorityFilter(event.target.value as any)}
+            className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1 text-[11px] outline-none"
+          >
+            <option value="all">All</option>
+            <option value="HIGH">High</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="LOW">Low</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-neutral-500">Project</span>
+          <select
+            value={projectFilter}
+            onChange={event => setProjectFilter(event.target.value)}
+            className="min-w-[160px] rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-1 text-[11px] outline-none"
+          >
+            <option value="all">All projects</option>
+            {uniqueProjects.map(project => (
+              <option key={project.id} value={project.id}>
+                {project.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 text-xs shadow-sm">
+        <div className="grid grid-cols-[minmax(0,1.6fr)_minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.8fr)_minmax(0,0.8fr)] bg-[var(--bg-elevated)]/60 px-4 py-2 text-[11px] font-medium text-neutral-500">
+          <div>Task</div>
+          <div>Project</div>
+          <div>Stage</div>
+          <div>Due</div>
+          <div>Priority</div>
+          <div>Status</div>
+        </div>
+        {isLoading ? (
+          <div className="px-4 py-8 text-center text-[11px] text-neutral-500">Loading tasks…</div>
+        ) : isError ? (
+          <div className="px-4 py-8 text-center text-[11px] text-red-500">
+            Unable to load tasks. Please refresh or sign in again.
+          </div>
+        ) : !sortedTasks.length ? (
+          <div className="px-4 py-8 text-center text-[11px] text-neutral-500">
+            No tasks assigned to you yet.
+          </div>
+        ) : (
+          <div className="divide-y divide-[var(--border)]/70">
+            {sortedTasks.map(task => {
+              const dueDate = task.dueDate ? new Date(task.dueDate) : null;
+              const todayStart = new Date();
+              todayStart.setHours(0, 0, 0, 0);
+              const isOverdue = task.status !== "completed" && dueDate != null && dueDate < todayStart;
+
+              return (
+                <div
+                  key={task.id}
+                  className={`grid grid-cols-[minmax(0,1.6fr)_minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.8fr)_minmax(0,0.8fr)] items-center gap-3 px-4 py-3 text-[11px] ${
+                    isOverdue ? "bg-red-50/60" : ""
+                  }`}
+                >
+                  <div className="space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/deployment/projects`)}
+                      className="line-clamp-2 text-left font-semibold text-[var(--text-primary)] hover:underline"
+                    >
+                      {task.title}
+                    </button>
+                    <p className="text-[10px] text-neutral-500">
+                      Assigned by {task.assignedBy || "system"}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-neutral-800">
+                      {task.project.projectRef} · {task.project.clientName}
+                    </p>
+                  </div>
+                  <div className="text-[11px] text-neutral-700">{task.stage}</div>
+                  <div className="text-[11px] text-neutral-700">
+                    {dueDate ? dueDate.toLocaleDateString() : "No due date"}
+                  </div>
+                  <div className="text-[11px]">
+                    <span
+                      className={`inline-flex rounded-full px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] ${
+                        task.priority === "HIGH"
+                          ? "bg-red-100 text-red-700"
+                          : task.priority === "LOW"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-amber-50 text-amber-700"
+                      }`}
+                    >
+                      {task.priority}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span
+                      className={`inline-flex rounded-full px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] ${
+                        task.status === "completed"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : task.status === "in_progress"
+                          ? "bg-sky-50 text-sky-700"
+                          : isOverdue
+                          ? "bg-red-100 text-red-700"
+                          : "bg-neutral-100 text-neutral-700"
+                      }`}
+                    >
+                      {task.status}
+                    </span>
+                    {task.status !== "completed" && (
+                      <button
+                        type="button"
+                        onClick={() => markComplete(task)}
+                        className="rounded-full border border-emerald-500 bg-emerald-500 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-emerald-600"
+                      >
+                        Mark complete
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DeploymentSiteSurveysPage() {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["deployment-site-surveys"],
+    queryFn: async () => {
+      const response = await api.get("/api/v1/deployment/site-surveys");
+      return (response.data?.data ?? []) as DeploymentSiteSurveyListItem[];
+    },
+  });
+
+  const navigate = useNavigate();
+
+  const surveys = data ?? [];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <p className="text-xs uppercase tracking-[0.25em] text-neutral-500">Deployment</p>
+        <h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">Site surveys</h1>
+        <p className="mt-1 text-sm text-neutral-500">
+          All deployment site surveys across projects. Click a row to open the parent project.
+        </p>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-[var(--border)]/80 bg-[var(--bg-surface)]/95 text-xs shadow-sm">
+        <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,0.8fr)] bg-[var(--bg-elevated)]/60 px-4 py-2 text-[11px] font-medium text-neutral-500">
+          <div>Project ref</div>
+          <div>Client</div>
+          <div>Conducted by</div>
+          <div>Survey date</div>
+          <div>Status</div>
+        </div>
+        {isLoading ? (
+          <div className="px-4 py-8 text-center text-[11px] text-neutral-500">Loading site surveys…</div>
+        ) : isError ? (
+          <div className="px-4 py-8 text-center text-[11px] text-red-500">
+            Unable to load site surveys. Please refresh or sign in again.
+          </div>
+        ) : !surveys.length ? (
+          <div className="px-4 py-8 text-center text-[11px] text-neutral-500">
+            No site surveys recorded yet.
+          </div>
+        ) : (
+          <div className="divide-y divide-[var(--border)]/70">
+            {surveys.map(survey => {
+              const surveyDate = survey.surveyDate ? new Date(survey.surveyDate) : null;
+              return (
+                <button
+                  key={survey.id}
+                  type="button"
+                  onClick={() => navigate(`/deployment/projects`)}
+                  className="grid w-full grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)_minmax(0,1.2fr)_minmax(0,0.9fr)_minmax(0,0.8fr)] items-center gap-3 px-4 py-3 text-left text-[11px] hover:bg-[var(--bg-elevated)]/60"
+                >
+                  <div className="space-y-1">
+                    <p className="font-semibold text-[var(--text-primary)]">{survey.project.projectRef}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-neutral-800">{survey.project.clientName}</p>
+                  </div>
+                  <div className="text-[11px] text-neutral-700">{survey.conductedBy || "Not captured"}</div>
+                  <div className="text-[11px] text-neutral-700">
+                    {surveyDate ? surveyDate.toLocaleDateString() : "Not set"}
+                  </div>
+                  <div className="text-[11px]">
+                    <span
+                      className={`inline-flex rounded-full px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] ${
+                        survey.status === "completed"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-neutral-100 text-neutral-700"
+                      }`}
+                    >
+                      {survey.status}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DeploymentProjectDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+
+  const { data: project, isLoading, isError } = useQuery({
+    queryKey: ["deployment-project", id],
+    queryFn: async () => {
+      if (!id) return undefined;
+      const response = await api.get(`/api/v1/deployment/${id}`);
+      return response.data?.data as
+        | (DeploymentProjectListItem & {
+            tasks: DeploymentTaskListItem[];
+          })
+        | undefined;
+    },
+    enabled: Boolean(id),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <p className="text-xs uppercase tracking-[0.25em] text-neutral-500">Deployment</p>
+        <h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">Loading project…</h1>
+      </div>
+    );
+  }
+
+  if (isError || !project) {
+    return (
+      <div className="space-y-4">
+        <p className="text-xs uppercase tracking-[0.25em] text-neutral-500">Deployment</p>
+        <h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">Project not found</h1>
+        <button
+          type="button"
+          onClick={() => navigate("/deployment/projects")}
+          className="text-[11px] text-sky-600 underline"
+        >
+          Back to projects
+        </button>
+      </div>
+    );
+  }
+
+  const totalTasks = project.tasks.length;
+  const completedTasks = project.tasks.filter(task => task.status === "completed").length;
+  const completionRatio = totalTasks === 0 ? 0 : completedTasks / totalTasks;
+  const completionPercent = Math.round(completionRatio * 100);
+
+  let ringColor = "#ef4444";
+  if (completionPercent >= 70) {
+    ringColor = "#22c55e";
+  } else if (completionPercent >= 30) {
+    ringColor = "#f97316";
+  }
+
+  const expectedGoLive = project.expectedGoLive ? new Date(project.expectedGoLive) : null;
+  const today = new Date();
+  let countdownLabel = "Go-Live date not planned";
+  let countdownColor = "text-neutral-500";
+  let countdownBg = "bg-neutral-100";
+  let isFlashing = false;
+
+  if (expectedGoLive) {
+    const diffMs = expectedGoLive.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 7) {
+      countdownLabel = `${diffDays} days to Go-Live`;
+      countdownColor = "text-emerald-700";
+      countdownBg = "bg-emerald-50";
+    } else if (diffDays >= 3) {
+      countdownLabel = `${diffDays} days to Go-Live`;
+      countdownColor = "text-amber-700";
+      countdownBg = "bg-amber-50";
+    } else if (diffDays >= 0) {
+      countdownLabel = `${diffDays} days to Go-Live`;
+      countdownColor = "text-red-700";
+      countdownBg = "bg-red-50";
+    } else {
+      countdownLabel = `${Math.abs(diffDays)} days overdue`;
+      countdownColor = "text-red-700";
+      countdownBg = "bg-red-100";
+      isFlashing = true;
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-2">
+          <p className="text-xs uppercase tracking-[0.25em] text-neutral-500">Deployment</p>
+          <h1 className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">
+            {project.projectRef} · {project.clientName}
+          </h1>
+          <p className="text-sm text-neutral-500">
+            {project.clientAddress || "Client address not captured."}
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-neutral-600">
+            <span className="rounded-full bg-[var(--bg-elevated)] px-3 py-1 text-[10px] uppercase tracking-[0.16em]">
+              Stage: {project.currentStage}
+            </span>
+            <span className="rounded-full bg-[var(--bg-elevated)] px-3 py-1 text-[10px] uppercase tracking-[0.16em]">
+              Priority: {project.priority}
+            </span>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[var(--bg-elevated)]">
+            <div className="relative h-16 w-16">
+              <svg viewBox="0 0 36 36" className="h-16 w-16 -rotate-90">
+                <path
+                  d="M18 2.5a15.5 15.5 0 1 1 0 31 15.5 15.5 0 0 1 0-31"
+                  className="fill-none stroke-[var(--border)]"
+                  strokeWidth="3"
+                />
+                <path
+                  d="M18 2.5a15.5 15.5 0 1 1 0 31 15.5 15.5 0 0 1 0-31"
+                  className="fill-none"
+                  stroke={ringColor}
+                  strokeDasharray={`${completionRatio * 97} 97`}
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-[10px] font-semibold text-[var(--text-primary)]">
+                <span>{completionPercent}%</span>
+                <span className="mt-0.5 text-[9px] font-normal text-neutral-500">
+                  tasks complete
+                </span>
+              </div>
+            </div>
+          </div>
+          <div
+            className={`flex min-w-[180px] items-center gap-2 rounded-full px-3 py-2 text-[11px] ${countdownBg} ${countdownColor} ${
+              isFlashing ? "animate-pulse" : ""
+            }`}
+          >
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-[10px] font-semibold">
+              GL
+            </span>
+            <div className="flex flex-col">
+              <span className="font-semibold">{countdownLabel}</span>
+              {expectedGoLive && (
+                <span className="text-[10px] text-neutral-600">
+                  Planned date: {expectedGoLive.toLocaleDateString()}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-dashed border-[var(--border)]/80 bg-[var(--bg-surface)]/95 p-4 text-[11px] text-neutral-500">
+        Task board, site survey form, infra assessment, material request workflows, email center and
+        activities timeline will hook into this project detail view. Backend wiring for deployment stages,
+        tasks, emails and activities is already in place.
+      </div>
+    </div>
+  );
+}
+
+function DeploymentReportsPage() {
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-xs uppercase tracking-[0.25em] text-neutral-500">Deployment</p>
+        <h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">Reports</h1>
+        <p className="mt-1 text-sm text-neutral-500">
+          Summary and SLA reports for deployment projects can be built on top of deploymentProject data.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function DashboardPage() {
   const [mode, setMode] = useState<"system" | "custom">("system");
 
@@ -7580,6 +10164,94 @@ export default function App() {
         element={
           <AppShell>
             <ApiFetcherPage />
+          </AppShell>
+        }
+      />
+      <Route
+        path="/scm"
+        element={
+          <AppShell>
+            <ScmDashboardPage />
+          </AppShell>
+        }
+      />
+      <Route
+        path="/scm/orders/:id"
+        element={
+          <AppShell>
+            <ScmOrderDetailPage />
+          </AppShell>
+        }
+      />
+      <Route
+        path="/scm/procurement"
+        element={
+          <AppShell>
+            <ScmProcurementListPage />
+          </AppShell>
+        }
+      />
+      <Route
+        path="/scm/dispatch"
+        element={
+          <AppShell>
+            <ScmDispatchListPage />
+          </AppShell>
+        }
+      />
+      <Route
+        path="/scm/documents"
+        element={
+          <AppShell>
+            <ScmDocumentsCenterPage />
+          </AppShell>
+        }
+      />
+      <Route
+        path="/deployment"
+        element={
+          <AppShell>
+            <DeploymentDashboardPage />
+          </AppShell>
+        }
+      />
+      <Route
+        path="/deployment/projects"
+        element={
+          <AppShell>
+            <DeploymentProjectsPage />
+          </AppShell>
+        }
+      />
+      <Route
+        path="/deployment/projects/:id"
+        element={
+          <AppShell>
+            <DeploymentProjectDetailPage />
+          </AppShell>
+        }
+      />
+      <Route
+        path="/deployment/tasks"
+        element={
+          <AppShell>
+            <DeploymentTasksPage />
+          </AppShell>
+        }
+      />
+      <Route
+        path="/deployment/site-surveys"
+        element={
+          <AppShell>
+            <DeploymentSiteSurveysPage />
+          </AppShell>
+        }
+      />
+      <Route
+        path="/deployment/reports"
+        element={
+          <AppShell>
+            <DeploymentReportsPage />
           </AppShell>
         }
       />

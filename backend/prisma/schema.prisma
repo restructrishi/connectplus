@@ -261,6 +261,194 @@ model Ovf {
   @@map("ovf")
 }
 
+model SCMOrder {
+  id               String        @id @default(cuid())
+  orderRef         String        @unique
+  linkedLeadId     String?
+  linkedDealId     String?
+  linkedOVFId      String        @unique
+  linkedPOId       String?
+  clientName       String
+  clientAddress    String?
+  assignedTo       String
+  currentStage     SCMStage      @default(ORDER_RECEIVED)
+  status           String        @default("active")
+  priority         Priority      @default(MEDIUM)
+  estimatedValue   Float?
+  expectedDelivery DateTime?
+  actualDelivery   DateTime?
+  notes            String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  stageHistory     SCMStageLog[]
+  procurement      SCMProcurement?
+  warehouse        SCMWarehouse?
+  dispatch         SCMDispatch?
+  documents        SCMDocument[]
+  expenses         SCMExpense[]
+  emails           SCMEmail[]
+  activities       SCMActivity[]
+}
+
+enum SCMStage {
+  ORDER_RECEIVED
+  PO_RECEIVED_FROM_CLIENT
+  LEAD_TIME_CALCULATED
+  PO_SENT_TO_DISTRIBUTOR
+  MATERIAL_IN_TRANSIT
+  MATERIAL_DELIVERED_WAREHOUSE
+  WAREHOUSE_DISPATCH_TO_CUSTOMER
+  MR_MRF_DOCS_COLLECTED
+  DOCS_SHARED_WITH_ACCOUNTS
+  INVOICE_SENT_TO_CUSTOMER
+  SCM_WORK_COMPLETED
+  DEPLOYMENT_STARTED
+}
+
+enum DeploymentStage {
+  INITIATED
+  KICKOFF_MEETING
+  SITE_SURVEY
+  INFRA_ASSESSMENT
+  FLOOR_LAYOUT_ACCESS
+  MATERIAL_REQUEST
+  MATERIAL_DISPATCHED
+  DEPLOYMENT_START
+  MATERIAL_VERIFICATION
+  ENGINEER_VISIT_ALIGNMENT
+  RACK_INSTALLATION
+  SERVER_NODE_SETUP
+  STORAGE_SETUP
+  POWER_ON
+  CONFIGURATION
+  HEALTH_TESTING
+  UAT
+  GO_LIVE
+}
+
+model SCMStageLog {
+  id            String    @id @default(cuid())
+  orderId       String
+  stage         SCMStage
+  enteredAt     DateTime  @default(now())
+  exitedAt      DateTime?
+  durationMin   Int?
+  completedBy   String
+  triggerSource String    @default("manual")
+  notes         String?
+
+  order         SCMOrder  @relation(fields: [orderId], references: [id])
+}
+
+model SCMProcurement {
+  id                 String    @id @default(cuid())
+  orderId            String    @unique
+  distributorName    String?
+  distributorContact String?
+  distributorEmail   String?
+  distributorPORef   String?
+  distributorPODate  DateTime?
+  expectedDelivery   DateTime?
+  leadTimeDays       Int?
+  itemList           Json?
+  totalValue         Float?
+  oemName            String?
+  oemContact         String?
+  poSentAt           DateTime?
+  poAttachmentUrl    String?
+  status             String    @default("pending")
+
+  order              SCMOrder  @relation(fields: [orderId], references: [id])
+}
+
+model SCMWarehouse {
+  id                String    @id @default(cuid())
+  orderId           String    @unique
+  receivedAt        DateTime?
+  receivedBy        String?
+  grnNumber         String?
+  grnAttachmentUrl  String?
+  itemsVerified     Boolean   @default(false)
+  verificationNotes String?
+  damageReported    Boolean   @default(false)
+  damageDetails     String?
+  photos            Json?
+
+  order             SCMOrder  @relation(fields: [orderId], references: [id])
+}
+
+model SCMDispatch {
+  id                   String    @id @default(cuid())
+  orderId              String    @unique
+  dispatchDate         DateTime?
+  vehicleDetails       String?
+  driverName           String?
+  driverContact        String?
+  deliveryChallanUrl   String?
+  deliveryConfirmUrl   String?
+  deliveredAt          DateTime?
+  deliveredTo          String?
+  customerSignatureUrl String?
+
+  order                SCMOrder  @relation(fields: [orderId], references: [id])
+}
+
+model SCMDocument {
+  id         String    @id @default(cuid())
+  orderId    String
+  type       String
+  name       String
+  fileUrl    String
+  uploadedBy String
+  sharedWith Json?
+  sharedAt   DateTime?
+  createdAt  DateTime  @default(now())
+
+  order      SCMOrder  @relation(fields: [orderId], references: [id])
+}
+
+model SCMExpense {
+  id          String    @id @default(cuid())
+  orderId     String
+  category    String
+  description String
+  amount      Float
+  date        DateTime
+  receiptUrl  String?
+  status      String    @default("pending")
+  approvedBy  String?
+  createdAt   DateTime  @default(now())
+
+  order       SCMOrder  @relation(fields: [orderId], references: [id])
+}
+
+model SCMEmail {
+  id      String   @id @default(cuid())
+  orderId String
+  to      Json
+  cc      Json?
+  subject String
+  body    String
+  sentBy  String
+  sentAt  DateTime @default(now())
+  type    String
+
+  order   SCMOrder @relation(fields: [orderId], references: [id])
+}
+
+model SCMActivity {
+  id          String   @id @default(cuid())
+  orderId     String
+  type        String
+  description String
+  createdBy   String
+  fileUrl     String?
+  createdAt   DateTime @default(now())
+
+  order       SCMOrder @relation(fields: [orderId], references: [id])
+}
+
 model ScmOrder {
   id               Int       @id @default(autoincrement())
   ovfId            Int       @map("ovf_id")
@@ -396,6 +584,169 @@ model UatTestCase {
   testedBy       User?      @relation(fields: [testedById], references: [id])
 
   @@map("uat_test_cases")
+}
+
+model DeploymentProject {
+  id                 String              @id @default(cuid())
+  projectRef         String              @unique
+  linkedSCMOrderId   String              @unique
+  linkedLeadId       String?
+  linkedDealId       String?
+  clientName         String
+  clientAddress      String?
+  clientContact      String?
+  clientContactPhone String?
+  assignedManagerId  String
+  currentStage       DeploymentStage     @default(INITIATED)
+  status             String              @default("active")
+  priority           Priority            @default(MEDIUM)
+  kickoffDate        DateTime?
+  expectedGoLive     DateTime?
+  actualGoLive       DateTime?
+  goLiveSignoffUrl   String?
+  notes              String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  stageHistory       DeploymentStageLog[]
+  tasks              DeploymentTask[]
+  siteSurvey         DeploymentSiteSurvey?
+  infraAssessment    InfraAssessment?
+  materialRequests   MaterialRequest[]
+  engineers          DeploymentEngineer[]
+  emails             DeploymentEmail[]
+  activities         DeploymentActivity[]
+}
+
+model DeploymentStageLog {
+  id            String           @id @default(cuid())
+  projectId     String
+  stage         DeploymentStage
+  enteredAt     DateTime         @default(now())
+  exitedAt      DateTime?
+  durationMin   Int?
+  completedBy   String
+  triggerSource String           @default("manual")
+  notes         String?
+
+  project       DeploymentProject @relation(fields: [projectId], references: [id])
+}
+
+model DeploymentTask {
+  id             String           @id @default(cuid())
+  projectId      String
+  title          String
+  description    String?
+  stage          DeploymentStage
+  assignedTo     String
+  assignedBy     String
+  priority       Priority         @default(MEDIUM)
+  status         String           @default("pending")
+  dueDate        DateTime?
+  completedAt    DateTime?
+  completionNote String?
+  evidenceUrl    String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  project        DeploymentProject @relation(fields: [projectId], references: [id])
+}
+
+model DeploymentEngineer {
+  id         String           @id @default(cuid())
+  projectId  String
+  userId     String
+  role       String
+  assignedAt DateTime         @default(now())
+  assignedBy String
+
+  project    DeploymentProject @relation(fields: [projectId], references: [id])
+}
+
+model DeploymentSiteSurvey {
+  id                   String           @id @default(cuid())
+  projectId            String           @unique
+  surveyDate           DateTime?
+  conductedBy          String?
+  siteContact          String?
+  siteContactPhone     String?
+  serverRoomDimensions String?
+  coolingStatus        String?
+  existingRacks        Boolean          @default(false)
+  availableRackUnits   Int?
+  existingNetwork      String?
+  availablePorts       Int?
+  internetDetails      String?
+  powerOutlets         Int?
+  upsAvailable         Boolean          @default(false)
+  loadCapacity         String?
+  cctvCoverage         Boolean          @default(false)
+  accessControl        Boolean          @default(false)
+  floorPlanUrl         String?
+  photos               Json?
+  additionalNotes      String?
+  status               String           @default("pending")
+  completedAt          DateTime?
+
+  project              DeploymentProject @relation(fields: [projectId], references: [id])
+}
+
+model InfraAssessment {
+  id                 String           @id @default(cuid())
+  projectId          String           @unique
+  serverDetails      Json?
+  rackDetails        Json?
+  networkDetails     Json?
+  securityDetails    Json?
+  itApproval         Boolean          @default(false)
+  facilitiesApproval Boolean          @default(false)
+  securityClearance  Boolean          @default(false)
+  approvalNotes      String?
+  completedAt        DateTime?
+
+  project            DeploymentProject @relation(fields: [projectId], references: [id])
+}
+
+model MaterialRequest {
+  id            String           @id @default(cuid())
+  projectId     String
+  requestRef    String           @unique
+  items         Json
+  requestedBy   String
+  status        String           @default("pending")
+  dispatchedAt  DateTime?
+  receivedAt    DateTime?
+  verifiedBy    String?
+  attachmentUrl String?
+  createdAt     DateTime         @default(now())
+
+  project       DeploymentProject @relation(fields: [projectId], references: [id])
+}
+
+model DeploymentEmail {
+  id        String           @id @default(cuid())
+  projectId String
+  to        Json
+  cc        Json?
+  subject   String
+  body      String
+  sentBy    String
+  sentAt    DateTime         @default(now())
+  type      String
+
+  project   DeploymentProject @relation(fields: [projectId], references: [id])
+}
+
+model DeploymentActivity {
+  id          String           @id @default(cuid())
+  projectId   String
+  type        String
+  description String
+  createdBy   String
+  fileUrl     String?
+  createdAt   DateTime         @default(now())
+
+  project     DeploymentProject @relation(fields: [projectId], references: [id])
 }
 
 model Invoice {

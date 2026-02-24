@@ -4,13 +4,14 @@ config();
 import http from "http";
 import { Server as SocketIOServer } from "socket.io";
 import app from "./app";
-import { registerPresalesCron } from "./utils/presalesCron";
+import { registerPresalesCron, registerDeploymentCron } from "./utils/presalesCron";
 
 const initialPort = process.env.PORT ? parseInt(process.env.PORT, 10) : 4000;
 let currentPort = initialPort;
 
 const server = http.createServer(app);
 registerPresalesCron();
+registerDeploymentCron();
 const io = new SocketIOServer(server, {
   cors: {
     origin: true,
